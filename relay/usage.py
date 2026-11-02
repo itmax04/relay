@@ -83,6 +83,24 @@ def _m(n):
     return f"{n / 1e6:.1f}M" if n >= 1e6 else f"{n / 1e3:.0f}K"
 
 
+def _as_data(since, cap, per_agent, buckets, ranked, quotas, total_weight):
+    for s in ranked:
+        s["models"] = dict(s["models"])
+        s["share"] = s["weight"] / total_weight
+    return {"since": since.isoformat(), "cap": cap, "agents": per_agent, "buckets": buckets,
+            "sessions": ranked, "quota": quotas}
+
+
+def data(agents=transcripts.AGENTS, since=None, cap=150_000, top=10):
+    """What `relay usage --json` prints, as a dict (the local API serves it to the app)."""
+    calls, quotas = collect(agents, since)
+    sessions, per_agent, buckets = summarize(calls, cap)
+    total_weight = sum(a["weight"] for a in per_agent.values()) or 1.0
+    ranked = sorted(sessions.values(), key=lambda s: -s["weight"])[:top]
+    return json.loads(json.dumps(_as_data(since, cap, per_agent, buckets, ranked, quotas, total_weight),
+                                 default=float))
+
+
 def report(agents=transcripts.AGENTS, since=None, cap=150_000, top=10, as_json=False):
     since = since or (datetime.date.today() - datetime.timedelta(days=30))
     calls, quotas = collect(agents, since)
@@ -92,11 +110,7 @@ def report(agents=transcripts.AGENTS, since=None, cap=150_000, top=10, as_json=F
     ranked = sorted(sessions.values(), key=lambda s: -s["weight"])
 
     if as_json:
-        for s in ranked:
-            s["models"] = dict(s["models"])
-            s["share"] = s["weight"] / total_weight
-        print(json.dumps({"since": since.isoformat(), "cap": cap, "agents": per_agent,
-                          "buckets": buckets, "sessions": ranked, "quota": quotas},
+        print(json.dumps(_as_data(since, cap, per_agent, buckets, ranked, quotas, total_weight),
                          ensure_ascii=False, indent=1, default=float))
         return 0
 

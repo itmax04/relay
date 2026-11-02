@@ -1,0 +1,115 @@
+{
+ "since": "2026-10-26",
+ "cap": 150000,
+ "agents": {
+  "claude": {
+   "calls": 2745,
+   "fresh": 5666,
+   "cache_write": 17548220,
+   "cache_read": 853891185,
+   "output": 3219934,
+   "context": 871445071,
+   "weight": 123429729.50000018,
+   "over_cap": 563517898
+  },
+  "codex": {
+   "calls": 836,
+   "fresh": 4974749,
+   "cache_write": 0,
+   "cache_read": 129322240,
+   "output": 704952,
+   "context": 134296989,
+   "weight": 21431732.99999999,
+   "over_cap": 34868548
+  }
+ },
+ "buckets": {
+  "<100K": [
+   1197,
+   59982361
+  ],
+  "100-200K": [
+   671,
+   97969781
+  ],
+  "200-400K": [
+   715,
+   205070546
+  ],
+  "400-700K": [
+   619,
+   331297383
+  ],
+  ">=700K": [
+   379,
+   311421989
+  ]
+ },
+ "sessions": [
+  {
+   "agent": "claude",
+   "session": "46d4ff5e-b1a1-40bc-bff1-84c69b20a671",
+   "project": "demo",
+   "first": "2026-10-31T08:21:26.568Z",
+   "last": "2026-11-01T13:05:55.666Z",
+   "calls": 1959,
+   "subagent_calls": 803,
+   "max_context": 966542,
+   "context_sum": 583720952,
+   "output": 1921289,
+   "weight": 76997297.70000005,
+   "models": {
+    "claude-sonnet-5-5": 610,
+    "claude-opus-5-5": 1341,
+    "<synthetic>": 8
+   },
+   "share": 0.5315236804267385
+  },
+  {
+   "agent": "claude",
+   "session": "48fe2acc-d85f-4d8f-8b28-00c1fa0e2b7d",
+   "project": "demo",
+   "first": "2026-10-26T06:05:03.878Z",
+   "last": "2026-10-28T07:41:29.512Z",
+   "calls": 321,
+   "subagent_calls": 11,
+   "max_context": 966655,
+   "context_sum": 150633247,
+   "output": 653828,
+   "weight": 24512684.800000016,
+   "models": {
+    "claude-haiku-5-5": 11,
+    "claude-opus-5-5": 309,
+    "<synthetic>": 1
+   },
+   "share": 0.16921467156939676
+  }
+ ],
+ "quota": {
+  "codex": {
+   "limit_id": "codex",
+   "limit_name": null,
+   "primary": {
+    "used_percent": 91.0,
+    "window_minutes": 300,
+    "resets_at": 1793617963
+   },
+   "secondary": {
+    "used_percent": 69.0,
+    "window_minutes": 10080,
+    "resets_at": 1793879603
+   },
+   "credits": {
+    "has_credits": false,
+    "unlimited": false,
+    "balance": null
+   },
+   "individual_limit": null,
+   "spend_control_reached": null,
+   "plan_type": "team",
+   "rate_limit_reached_type": null,
+   "ts": "2026-11-02T06:53:53.708Z"
+  }
+ },
+ "days": 7
+}

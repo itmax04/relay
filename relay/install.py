@@ -109,6 +109,24 @@ def install(agent, autocompact=None, statusline=True):
         print("Codex runs new hooks only after you trust them: open Codex and review them with /hooks.")
 
 
+def status(agent):
+    """Whether relay's hooks, status line and skill are present in the agent's config."""
+    t = TARGETS[agent]
+    path = t["config"]()
+    try:
+        data = _read(path)
+    except ValueError:
+        data = {}
+    events = sorted(e for e, groups in (data.get("hooks") or {}).items()
+                    if any(MARK in str(h.get("command", "")) for g in groups or [] for h in g.get("hooks", [])))
+    out = {"agent": agent, "config": path, "config_exists": os.path.exists(path), "hooks": events,
+           "hooks_installed": set(EVENTS) <= set(events), "skill_linked": os.path.exists(t["skill_link"]())}
+    if agent == "claude":
+        out["statusline"] = "/bin/relay\" statusline" in str((data.get("statusLine") or {}).get("command", ""))
+        out["autocompact"] = data.get("autoCompactWindow")
+    return out
+
+
 def uninstall(agent, drop_autocompact=False):
     t = TARGETS[agent]
     path = t["config"]()

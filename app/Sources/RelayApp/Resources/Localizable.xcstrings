@@ -1,0 +1,508 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@: listed in config, no key in Keychain" : {
+
+    },
+    "%lld calls" : {
+
+    },
+    "%lld calls · peak %@ · %@ re-sent" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld calls · peak %2$@ · %3$@ re-sent"
+          }
+        }
+      }
+    },
+    "%lld failed tools" : {
+
+    },
+    "%lld sessions" : {
+
+    },
+    "%lld suggestions" : {
+
+    },
+    "%lld/%lld keys ready" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld keys ready"
+          }
+        }
+      }
+    },
+    "30 days" : {
+
+    },
+    "5-hour window" : {
+
+    },
+    "7 days" : {
+
+    },
+    "Above %@" : {
+
+    },
+    "Account name" : {
+
+    },
+    "Active sessions" : {
+
+    },
+    "Active sessions: last" : {
+
+    },
+    "Add key" : {
+
+    },
+    "Advice only: relay never switches a model or effort for you." : {
+
+    },
+    "Advice to save context and quota. Mark it Useful or Wrong to teach the advisor." : {
+
+    },
+    "Advice, sessions and quotas come from relay watch on port 8765." : {
+
+    },
+    "Advisor" : {
+
+    },
+    "Agent" : {
+
+    },
+    "Agents" : {
+
+    },
+    "All" : {
+
+    },
+    "At this pace: ~%lld%% by reset" : {
+
+    },
+    "Big context" : {
+
+    },
+    "Calls" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Claude" : {
+
+    },
+    "Claude readings come from the relay status line; Codex readings from its session logs. A reading taken before its window reset is shown grey: the current figure is unknown until the agent runs again." : {
+
+    },
+    "Codex" : {
+
+    },
+    "Commands and tools the agent ran, with token sizes." : {
+
+    },
+    "Connecting to relay watch…" : {
+
+    },
+    "Connecting…" : {
+
+    },
+    "Context" : {
+
+    },
+    "Context %@ of %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Context %1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "Context above which cache expiry and LLM reviews matter." : {
+
+    },
+    "Context at which relay asks for a handoff." : {
+
+    },
+    "Context at which relay says: stop starting new work here." : {
+
+    },
+    "Context per model call" : {
+
+    },
+    "Context re-sent" : {
+
+    },
+    "Continue in a new session" : {
+
+    },
+    "Continue in a new session…" : {
+
+    },
+    "Copied" : {
+
+    },
+    "Copy" : {
+
+    },
+    "Copy %@" : {
+
+    },
+    "Copy model name" : {
+
+    },
+    "Copy prompt" : {
+
+    },
+    "Current configuration" : {
+
+    },
+    "Data sent to the advisor" : {
+
+    },
+    "Detected from the agents' config files. Installing changes those files, so run the command yourself." : {
+
+    },
+    "Dismiss" : {
+
+    },
+    "Engine" : {
+
+    },
+    "Engine down" : {
+
+    },
+    "Engine is not running" : {
+
+    },
+    "Engine running" : {
+
+    },
+    "Error excerpts" : {
+
+    },
+    "File names" : {
+
+    },
+    "Filter" : {
+
+    },
+    "Groq API key" : {
+
+    },
+    "Groq keys" : {
+
+    },
+    "Handoff path" : {
+
+    },
+    "Handoff skill" : {
+
+    },
+    "Handoff updated %@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Handoff updated %1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Hard limit" : {
+
+    },
+    "Heaviest sessions since %@" : {
+
+    },
+    "Hooks" : {
+
+    },
+    "Keychain service relay.groq" : {
+
+    },
+    "LLM advisor (rules always run)" : {
+
+    },
+    "Last advisor error: %@" : {
+
+    },
+    "Last prompt text" : {
+
+    },
+    "Lasts until the reset." : {
+
+    },
+    "Limits" : {
+
+    },
+    "Live Claude Code and Codex sessions on this Mac." : {
+
+    },
+    "Metrics (context, model, effort, quota, call counts) are always sent when the advisor is on." : {
+
+    },
+    "Names of recently touched files." : {
+
+    },
+    "New session…" : {
+
+    },
+    "No active Claude Code or Codex sessions." : {
+
+    },
+    "No active sessions" : {
+
+    },
+    "No handoff yet. Ask the current session to write one first (relay-handoff skill), then come back." : {
+
+    },
+    "No reading yet. Codex records limits in its session logs after the first turn." : {
+
+    },
+    "No reading yet. Install the relay status line (relay install claude) and send a message in Claude Code." : {
+
+    },
+    "No suggestions" : {
+
+    },
+    "Not enough of the week has passed to project." : {
+
+    },
+    "Not running" : {
+
+    },
+    "Now" : {
+
+    },
+    "One Keychain item per key; the engine uses them in this order and moves to the next on a rate limit. Which keys to add or rotate is your decision." : {
+
+    },
+    "Open in Claude CLI" : {
+
+    },
+    "Open in Codex" : {
+
+    },
+    "Open relay" : {
+
+    },
+    "Output" : {
+
+    },
+    "Period" : {
+
+    },
+    "Pick %@%@ in Codex's model picker." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Pick %1$@%2$@ in Codex's model picker."
+          }
+        }
+      }
+    },
+    "Quit relay" : {
+
+    },
+    "Quota alert at" : {
+
+    },
+    "Quota warning at" : {
+
+    },
+    "Quotas" : {
+
+    },
+    "Read %@" : {
+
+    },
+    "Reading transcripts…" : {
+
+    },
+    "Reload" : {
+
+    },
+    "Remove" : {
+
+    },
+    "Report" : {
+
+    },
+    "Repository" : {
+
+    },
+    "Reset %@ — reading is stale" : {
+
+    },
+    "Resets %@" : {
+
+    },
+    "Restart engine" : {
+
+    },
+    "Revert" : {
+
+    },
+    "Rule" : {
+
+    },
+    "Rules" : {
+
+    },
+    "Running (pid %@, port %@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Running (pid %1$@, port %2$@)"
+          }
+        }
+      }
+    },
+    "Runs out %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Runs out %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "Save" : {
+
+    },
+    "Saved" : {
+
+    },
+    "Saved by the engine to ~/.config/relay/config.json and applied without a restart." : {
+
+    },
+    "Sessions with activity in the last %lld hours appear here." : {
+
+    },
+    "Settings" : {
+
+    },
+    "Settings…" : {
+
+    },
+    "Show judged" : {
+
+    },
+    "Soft limit" : {
+
+    },
+    "Start relay watch" : {
+
+    },
+    "Start relay watch when the app starts" : {
+
+    },
+    "Starting relay watch…" : {
+
+    },
+    "Starting…" : {
+
+    },
+    "Status line" : {
+
+    },
+    "Subscription limits: 5-hour and weekly windows. Percent of quota, not dollars." : {
+
+    },
+    "Suggested configuration" : {
+
+    },
+    "Suggestions" : {
+
+    },
+    "The chain is empty: the engine was started with --no-llm, or the advisor is off." : {
+
+    },
+    "The engine stopped answering." : {
+
+    },
+    "This session has no working directory, so relay cannot find its handoff." : {
+
+    },
+    "Tokens" : {
+
+    },
+    "Tokens by context size of the call" : {
+
+    },
+    "Tool-call labels and large outputs" : {
+
+    },
+    "Up to 1,500 characters of your last message." : {
+
+    },
+    "Up to 300 characters of the last failed tool outputs." : {
+
+    },
+    "Useful" : {
+
+    },
+    "Week" : {
+
+    },
+    "Weekly forecast" : {
+
+    },
+    "Where the tokens went (relay usage). Context is re-sent with every call." : {
+
+    },
+    "Wrong" : {
+
+    },
+    "cache expired %@ ago" : {
+
+    },
+    "cache expires in %@" : {
+
+    },
+    "cooling %@" : {
+
+    },
+    "macOS notifications for high-severity advice" : {
+
+    },
+    "model unavailable" : {
+
+    },
+    "no keys" : {
+
+    },
+    "not used by the engine" : {
+
+    },
+    "relay" : {
+
+    },
+    "relay menu" : {
+
+    },
+    "relay watch" : {
+
+    },
+    "relay watch did not start. See %@." : {
+
+    },
+    "relay watch has nothing to advise right now." : {
+
+    },
+    "week" : {
+
+    }
+  },
+  "version" : "1.0"
+}

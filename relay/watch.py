@@ -1,4 +1,5 @@
 """`relay watch`: tail live sessions, apply rules, ask the LLM advisor on triggers, serve the API."""
+import datetime
 import io
 import json
 import os
@@ -6,7 +7,7 @@ import sys
 import threading
 import time
 
-from relay import advisor, catalog, config, live, notify, providers, rules, server, store
+from relay import advisor, catalog, config, install, live, notify, providers, rules, server, store, usage
 
 POLL_SECONDS = 2
 SCAN_SECONDS = 30
@@ -49,6 +50,10 @@ class Engine:
         if chain is None and use_llm and llm.get("enabled"):
             chain = providers.Chain(llm)
         self.chain = chain
+        self.use_llm = use_llm
+        self.use_notify = use_notify
+        self._usage_cache = {}
+        self.port = None
         self.advisor = advisor.Advisor(llm, chain, self._from_llm)
         self.cat = catalog.load(cfg)
         self.claude_quota = None
@@ -127,7 +132,9 @@ class Engine:
     def llm_context(self, s, trigger):
         """What the advisor model sees: metrics, the last prompt, errors, files, catalog, quota."""
         snap = s.snapshot()
-        return {
+        send = (self.cfg.get("llm") or {}).get("send") or {}
+        allowed = {k: send.get(k, True) is not False for k in ("prompt", "errors", "files", "tools")}
+        ctx = {
             "agent": s.agent, "project": s.project, "model": s.model, "effort": s.effort,
             "context_tokens": s.context, "context_window": s.context_window, "peak_context": s.peak_context,
             "soft_limit": self.cfg["soft_limit"], "hard_limit": self.cfg["hard_limit"],
@@ -143,9 +150,16 @@ class Engine:
             "catalog": [{k: m.get(k) for k in ("slug", "tier", "efforts")} for m in self.cat.get(s.agent) or []],
             "rule_triggered": {k: (trigger or {}).get(k) for k in ("rule", "title", "reason")} if trigger else None,
         }
+        for key, fields in (("prompt", ("last_user_prompt",)), ("errors", ("recent_errors",)),
+                            ("files", ("recent_files",)), ("tools", ("recent_tools", "large_tool_outputs"))):
+            if not allowed[key]:
+                for f in fields:
+                    ctx.pop(f)
+        return ctx
 
     def run(self, port=None):
         port = port or int(self.cfg["api_port"])
+        self.port = port
         httpd = server.serve(self, port)
         self.advisor.start(lambda: self.cat)
         chain = ", ".join(e.label for e in self.chain.entries) if self.chain else "off (rules only)"
@@ -183,8 +197,49 @@ class Engine:
     def catalog(self):
         return self.cat
 
+    def config_view(self):
+        with self.lock:
+            effective = {k: v for k, v in self.cfg.items() if k != "project_root"}
+        return {"path": config.user_path(), "user": config.load_user(), "effective": effective,
+                "defaults": config.DEFAULTS}
+
+    def update_config(self, patch):
+        """Write user settings and apply them; an empty patch just reloads (e.g. new Keychain keys)."""
+        if patch:
+            config.save_user(patch)
+        self.apply(config.load(self.cfg.get("project_root")))
+        return self.config_view()
+
+    def apply(self, cfg):
+        with self.lock:
+            self.cfg = cfg
+            self.tailer.active_seconds = float(cfg["watch_active_hours"]) * 3600
+            if self.notifier.send is notify.osascript:
+                self.notifier.enabled = self.use_notify and bool(cfg.get("notify")) and sys.platform == "darwin"
+            llm = cfg.get("llm") or {}
+            if self.use_llm:
+                self.chain = providers.Chain(llm) if llm.get("enabled") else None
+            self.advisor.llm = llm
+            self.advisor.chain = self.chain
+            self.cat = catalog.load(cfg)
+
+    def usage(self, days=7):
+        days = max(1, min(int(days), 90))
+        now = time.time()
+        cached = self._usage_cache.get(days)
+        if cached and now - cached[0] < 120:
+            return cached[1]
+        since = datetime.date.today() - datetime.timedelta(days=days)
+        d = usage.data(since=since, cap=int(self.cfg["soft_limit"]))
+        d["days"] = days
+        self._usage_cache[days] = (now, d)
+        return d
+
+    def agents(self):
+        return [install.status(a) for a in install.TARGETS]
+
     def health(self):
-        return {"ok": True, "started": self.started, "sessions": len(self.tailer.sessions),
+        return {"ok": True, "started": self.started, "port": self.port, "pid": os.getpid(), "sessions": len(self.tailer.sessions),
                 "llm": self.chain.status() if self.chain else [], "llm_last_error": self.advisor.last_error,
                 "advice": len(self.log.items)}
 

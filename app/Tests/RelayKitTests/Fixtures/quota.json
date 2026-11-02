@@ -1,0 +1,38 @@
+{
+ "claude": {
+  "five_hour": {
+   "used_percentage": 23.5,
+   "resets_at": 1793640000
+  },
+  "seven_day": {
+   "used_percentage": 78,
+   "resets_at": "2026-11-05T09:00:00Z"
+  },
+  "ts": "2026-11-02T22:38:54",
+  "session": "x"
+ },
+ "codex": {
+  "limit_id": "codex",
+  "limit_name": null,
+  "primary": {
+   "used_percent": 91.0,
+   "window_minutes": 300,
+   "resets_at": 1793617963
+  },
+  "secondary": {
+   "used_percent": 69.0,
+   "window_minutes": 10080,
+   "resets_at": 1793879603
+  },
+  "credits": {
+   "has_credits": false,
+   "unlimited": false,
+   "balance": null
+  },
+  "individual_limit": null,
+  "spend_control_reached": null,
+  "plan_type": "team",
+  "rate_limit_reached_type": null,
+  "ts": "2026-11-02T06:53:53.708Z"
+ }
+}

@@ -1,0 +1,118 @@
+{
+ "path": "/Users/me/.config/relay/config.json",
+ "user": {
+  "soft_limit": 150000
+ },
+ "effective": {
+  "soft_limit": 150000,
+  "hard_limit": 300000,
+  "handoff_path": ".relay/handoff.md",
+  "watch_active_hours": 12,
+  "cache_ttl": {
+   "claude": 3600,
+   "codex": 600
+  },
+  "cache_warn_seconds": 300,
+  "big_context": 100000,
+  "repeat_failures": 3,
+  "large_read_tokens": 20000,
+  "mechanical_run": 10,
+  "quota_warn": 75,
+  "quota_high": 90,
+  "api_port": 8765,
+  "notify": true,
+  "model_tiers": {},
+  "llm": {
+   "enabled": true,
+   "chain": [
+    {
+     "provider": "groq",
+     "model": "llama-3.3-70b-versatile"
+    },
+    {
+     "provider": "groq",
+     "model": "minimaxai/minimax-m2.7"
+    },
+    {
+     "provider": "groq",
+     "model": "llama-3.1-8b-instant"
+    },
+    {
+     "provider": "cloudflare",
+     "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    }
+   ],
+   "groq_keychain_accounts": [
+    "default"
+   ],
+   "cloudflare_account_id": null,
+   "timeout": 25,
+   "provider_cooldown": 300,
+   "min_interval_per_session": 600,
+   "max_per_hour": 20,
+   "review_every_calls": 40,
+   "send": {
+    "prompt": true,
+    "errors": true,
+    "files": true,
+    "tools": true
+   }
+  }
+ },
+ "defaults": {
+  "soft_limit": 150000,
+  "hard_limit": 300000,
+  "handoff_path": ".relay/handoff.md",
+  "watch_active_hours": 12,
+  "cache_ttl": {
+   "claude": 3600,
+   "codex": 600
+  },
+  "cache_warn_seconds": 300,
+  "big_context": 100000,
+  "repeat_failures": 3,
+  "large_read_tokens": 20000,
+  "mechanical_run": 10,
+  "quota_warn": 75,
+  "quota_high": 90,
+  "api_port": 8765,
+  "notify": true,
+  "model_tiers": {},
+  "llm": {
+   "enabled": true,
+   "chain": [
+    {
+     "provider": "groq",
+     "model": "llama-3.3-70b-versatile"
+    },
+    {
+     "provider": "groq",
+     "model": "minimaxai/minimax-m2.7"
+    },
+    {
+     "provider": "groq",
+     "model": "llama-3.1-8b-instant"
+    },
+    {
+     "provider": "cloudflare",
+     "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+    }
+   ],
+   "groq_keychain_accounts": [
+    "default"
+   ],
+   "cloudflare_account_id": null,
+   "timeout": 25,
+   "provider_cooldown": 300,
+   "min_interval_per_session": 600,
+   "max_per_hour": 20,
+   "review_every_calls": 40,
+   "send": {
+    "prompt": true,
+    "errors": true,
+    "files": true,
+    "tools": true
+   }
+  }
+ }
+}

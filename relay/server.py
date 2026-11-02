@@ -7,6 +7,11 @@ GET  /api/quota                      latest Claude and Codex quota readings
 GET  /api/catalog                    switchable models per agent
 GET  /api/advice?limit=&session=     advice, newest first
 POST /api/advice/<id>/outcome        {"outcome": "useful" | "wrong" | null, "note": "..."}
+GET  /api/config                     user file, effective settings and defaults
+POST /api/config                     partial settings → ~/.config/relay/config.json, applied live;
+                                     {} re-reads keys (after the app changes the Keychain)
+GET  /api/usage?days=7               `relay usage --json` data (cached 2 min)
+GET  /api/agents                     relay hooks / status line / skill installed per agent
 GET  /api/events                     SSE: events "session", "advice", "quota"; ": ping" every 15 s
 
 Requests whose Host is not localhost are refused (DNS rebinding), and POST requires a JSON body
@@ -96,6 +101,16 @@ def make_handler(engine):
                 except ValueError:
                     limit = 100
                 return self._json(200, engine.log.list(limit, (qs.get("session") or [None])[0]))
+            if path == "/api/config":
+                return self._json(200, engine.config_view())
+            if path == "/api/agents":
+                return self._json(200, engine.agents())
+            if path == "/api/usage":
+                try:
+                    days = int((qs.get("days") or ["7"])[0])
+                except ValueError:
+                    days = 7
+                return self._json(200, engine.usage(days))
             if path == "/api/events":
                 return self._events()
             self._json(404, {"error": "not found"})
@@ -103,14 +118,17 @@ def make_handler(engine):
         def do_POST(self):
             if not self._local():
                 return
-            m = re.fullmatch(r"/api/advice/([^/]+)/outcome", urllib.parse.urlparse(self.path).path)
-            if not m:
+            path = urllib.parse.urlparse(self.path).path.rstrip("/")
+            m = re.fullmatch(r"/api/advice/([^/]+)/outcome", path)
+            if not m and path != "/api/config":
                 return self._json(404, {"error": "not found"})
             if not (self.headers.get("Content-Type") or "").startswith("application/json"):
                 return self._json(415, {"error": "send application/json"})
             try:
-                n = min(int(self.headers.get("Content-Length") or 0), 10000)
+                n = min(int(self.headers.get("Content-Length") or 0), 100000)
                 body = json.loads(self.rfile.read(n) or b"{}")
+                if not m:
+                    return self._json(200, engine.update_config(body))
                 d = engine.log.set_outcome(m.group(1), body.get("outcome"), body.get("note"))
             except (ValueError, AttributeError) as e:
                 return self._json(400, {"error": str(e)})

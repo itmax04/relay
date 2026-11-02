@@ -1,0 +1,13 @@
+: connected
+
+event: advice
+data: {"key": "claude:9bdfc501-9745-491d-8f18-67cc599099ad:context:dormant", "rule": "context", "agent": "claude", "session": "9bdfc501-9745-491d-8f18-67cc599099ad", "project": "demo", "session_title": "Demo session", "title": "Don't resume this 393K session", "action": "new_session", "severity": "info", "reason": "It sat idle past the cache lifetime; the next message re-sends 393K tokens uncached. Continue from a handoff in a new session instead.", "suggested": null, "metrics": {"context": 393065, "idle_seconds": 1052796}, "id": "9d0f342c5ad1", "ts": "2026-11-02T22:38:54+0100", "source": "rules", "outcome": null}
+
+: ping
+
+event: quota
+data: {"claude": null, "codex": {"limit_id": "codex", "limit_name": null, "primary": {"used_percent": 91.0, "window_minutes": 300, "resets_at": 1793617963}, "secondary": {"used_percent": 69.0, "window_minutes": 10080, "resets_at": 1793879603}, "credits": {"has_credits": false, "unlimited": false, "balance": null}, "individual_limit": null, "spend_control_reached": null, "plan_type": "team", "rate_limit_reached_type": null, "ts": "2026-11-02T06:53:53.708Z"}}
+
+event: session
+data: {"id": "019a-codex", "agent": "codex", "path": "/Users/me/.claude/projects/x/f4312ca4-e11c-4e8d-b74c-31fcbb0ac8a7.jsonl", "project": "demo", "cwd": "/Users/me/Developer/demo", "title": "Demo session", "entrypoint": "claude-desktop", "model": "gpt-6.1-sol", "effort": "medium", "context": 92000, "peak_context": 89865, "context_window": 258000, "calls": 5, "turns": 0, "tool_calls": 6, "failures": 0, "idle_seconds": 5, "last_activity": 1793655534.245, "last_prompt": "Fix the failing test in parser.py", "rate_limits": {"primary": {"used_percent": 91.0, "window_minutes": 300, "resets_at": 1793617963}, "secondary": {"used_percent": 69.0, "window_minutes": 10080, "resets_at": 1793879603}}, "context_history": [120000, 150000, 89865]}
+

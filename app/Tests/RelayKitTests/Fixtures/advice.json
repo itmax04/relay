@@ -1,0 +1,69 @@
+[
+ {
+  "key": "claude:9bdfc501-9745-491d-8f18-67cc599099ad:context:dormant",
+  "rule": "context",
+  "agent": "claude",
+  "session": "9bdfc501-9745-491d-8f18-67cc599099ad",
+  "project": "demo",
+  "session_title": "Demo session",
+  "title": "Don't resume this 393K session",
+  "action": "new_session",
+  "severity": "info",
+  "reason": "It sat idle past the cache lifetime; the next message re-sends 393K tokens uncached. Continue from a handoff in a new session instead.",
+  "suggested": null,
+  "metrics": {
+   "context": 393065,
+   "idle_seconds": 1052796
+  },
+  "id": "9d0f342c5ad1",
+  "ts": "2026-11-02T22:38:54+0100",
+  "source": "rules",
+  "outcome": null
+ },
+ {
+  "key": "claude:522529f2-1871-4a06-969b-4e219515efb5:context:soft",
+  "rule": "context",
+  "agent": "claude",
+  "session": "522529f2-1871-4a06-969b-4e219515efb5",
+  "project": "demo",
+  "session_title": "Demo session",
+  "title": "Context 276K: plan a new session",
+  "action": "new_session",
+  "severity": "warn",
+  "reason": "Every call re-sends 276K tokens, over the 150K soft limit. Finish the current step, write a handoff and start fresh.",
+  "suggested": null,
+  "metrics": {
+   "context": 275586
+  },
+  "id": "3c3252a5a1fb",
+  "ts": "2026-11-02T22:38:54+0100",
+  "source": "rules",
+  "outcome": null
+ },
+ {
+  "key": "codex:019a-codex:mechanical:x",
+  "rule": "mechanical",
+  "agent": "codex",
+  "session": "019a-codex",
+  "project": "demo",
+  "session_title": "Demo",
+  "title": "12 mechanical turns on GPT-6.1-Sol",
+  "action": "switch_model",
+  "severity": "info",
+  "reason": "Cheaper model fits.",
+  "suggested": {
+   "model": "gpt-6.1-terra",
+   "effort": "low"
+  },
+  "metrics": {
+   "run": 12,
+   "label": "x"
+  },
+  "id": "abc123",
+  "ts": "2026-11-02T22:40:00+0100",
+  "source": "llm:groq/llama-3.3-70b-versatile",
+  "outcome": "useful",
+  "outcome_note": null,
+  "trigger": "3c3252a5a1fb"
+ }
+]

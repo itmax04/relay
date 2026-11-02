@@ -1,0 +1,27 @@
+{
+ "ok": true,
+ "started": 1793655000.5,
+ "port": 8765,
+ "pid": 4242,
+ "sessions": 2,
+ "llm": [
+  {
+   "entry": "groq/llama-3.3-70b-versatile",
+   "keys": 2,
+   "keys_ready": 1,
+   "cooling_seconds": 0,
+   "unavailable": false,
+   "last_error": null
+  },
+  {
+   "entry": "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+   "keys": 0,
+   "keys_ready": 0,
+   "cooling_seconds": 0,
+   "unavailable": false,
+   "last_error": "no keys"
+  }
+ ],
+ "llm_last_error": null,
+ "advice": 3
+}

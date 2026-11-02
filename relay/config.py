@@ -48,6 +48,9 @@ DEFAULTS = {
         "max_per_hour": 20,
         # A session gets an LLM review every this many model calls while its context is big.
         "review_every_calls": 40,
+        # What the advisor model may see besides metrics: the last prompt text, error excerpts,
+        # file names and tool-call labels. Missing keys count as true.
+        "send": {"prompt": True, "errors": True, "files": True, "tools": True},
     },
 }
 
@@ -82,10 +85,64 @@ def _read_json(path):
         return {}
 
 
+def user_path():
+    return home(".config", "relay", "config.json")
+
+
+def _check(key, value, default):
+    if value is None or default is None:
+        return
+    if isinstance(default, bool):
+        ok = isinstance(value, bool)
+    elif isinstance(default, int):
+        ok = isinstance(value, int) and not isinstance(value, bool)
+    else:
+        ok = isinstance(value, type(default))
+    if not ok:
+        raise ValueError(f"{key}: expected {type(default).__name__}")
+
+
+def save_user(patch):
+    """Merge `patch` into the user config file (sections merge one level; None resets a key)."""
+    if not isinstance(patch, dict):
+        raise ValueError("send a JSON object")
+    path = user_path()
+    data = _read_json(path)
+    for k, v in patch.items():
+        if k not in DEFAULTS:
+            raise ValueError(f"unknown setting: {k}")
+        default = DEFAULTS[k]
+        if isinstance(default, dict) and isinstance(v, dict) and k != "model_tiers":
+            section = dict(data.get(k) or {})
+            for sk, sv in v.items():
+                _check(f"{k}.{sk}", sv, default.get(sk))
+                if sv is None:
+                    section.pop(sk, None)
+                else:
+                    section[sk] = sv
+            data[k] = section
+        elif v is None:
+            data.pop(k, None)
+        else:
+            _check(k, v, default)
+            data[k] = v
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.replace(tmp, path)
+    return data
+
+
+def load_user():
+    return _read_json(user_path())
+
+
 def load(cwd=None):
     cfg = {k: dict(v) if isinstance(v, dict) else v for k, v in DEFAULTS.items()}
     root = project_root(cwd)
-    for path in (home(".config", "relay", "config.json"), os.path.join(root, ".relay", "config.json")):
+    for path in (user_path(), os.path.join(root, ".relay", "config.json")):
         for k, v in _read_json(path).items():
             if isinstance(v, dict) and isinstance(cfg.get(k), dict):
                 cfg[k].update(v)  # nested sections merge, so a file can override one setting

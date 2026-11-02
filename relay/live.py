@@ -80,6 +80,7 @@ class Session:
         self.model = None
         self.effort = None
         self.context = 0
+        self.context_history = collections.deque(maxlen=60)  # context of recent main-thread calls
         self.context_window = None
         self.peak_context = 0
         self.calls = 0  # model calls seen since relay started watching (bootstrap included)
@@ -107,6 +108,7 @@ class Session:
         if call and not call.sidechain:
             self.context = call.context
             self.peak_context = max(self.peak_context, call.context)
+            self.context_history.append(call.context)
             self.model = call.model if call.model != "?" else self.model
             self.calls += 1
             self.last_call_ts = parse_ts(call.ts) or self.last_call_ts
@@ -237,6 +239,7 @@ class Session:
         return {"id": self.id, "agent": self.agent, "path": self.path, "project": self.project, "cwd": self.cwd,
                 "title": self.title, "entrypoint": self.entrypoint, "model": self.model, "effort": self.effort,
                 "context": self.context, "peak_context": self.peak_context, "context_window": self.context_window,
+                "context_history": list(self.context_history),
                 "calls": self.calls, "turns": self.turns, "tool_calls": self.tool_calls,
                 "failures": sum(1 for t in self.recent_tools if t["error"]),
                 "idle_seconds": None if self.idle(now) is None else round(self.idle(now)),

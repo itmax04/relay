@@ -418,6 +418,45 @@ class ApiTests(TmpCase):
         with open(os.path.join(self.tmp, "advice.jsonl")) as f:
             self.assertEqual(json.loads(f.read().splitlines()[-1])["outcome"], "useful")
 
+    def test_config_round_trip_and_reload(self):
+        home = os.path.join(self.tmp, "home")
+        with mock.patch.dict(os.environ, {"HOME": home}):
+            json_h = {"Content-Type": "application/json"}
+            status, d = self.req("POST", "/api/config", {"soft_limit": 120_000, "llm": {"send": {"prompt": False}}},
+                                 json_h)
+            self.assertEqual((status, d["effective"]["soft_limit"]), (200, 120_000))
+            self.assertEqual(self.engine.cfg["llm"]["send"], {"prompt": False})
+            self.assertEqual(self.engine.cfg["llm"]["max_per_hour"], 20)  # other llm keys keep defaults
+            with open(os.path.join(home, ".config", "relay", "config.json")) as f:
+                self.assertEqual(json.load(f)["soft_limit"], 120_000)
+            self.assertEqual(self.req("POST", "/api/config", {"soft_limit": "big"}, json_h)[0], 400)
+            self.assertEqual(self.req("POST", "/api/config", {"nope": 1}, json_h)[0], 400)
+            status, d = self.req("POST", "/api/config", {"soft_limit": None}, json_h)
+            self.assertEqual(d["effective"]["soft_limit"], 150_000)
+            self.assertNotIn("soft_limit", d["user"])
+            status, agents = self.req("GET", "/api/agents")
+            self.assertEqual([(a["agent"], a["hooks_installed"]) for a in agents], [("claude", False), ("codex", False)])
+
+    def test_usage_endpoint_and_context_history(self):
+        with mock.patch.object(watch.usage, "data", return_value={"agents": {}}) as data:
+            self.assertEqual(self.req("GET", "/api/usage?days=3")[1], {"agents": {}, "days": 3})
+            self.req("GET", "/api/usage?days=3")
+            self.assertEqual(data.call_count, 1)  # cached
+        with mock.patch.object(watch, "read_codex_quota", return_value=None):
+            self.engine.tick()
+        self.assertEqual(self.req("GET", "/api/sessions")[1][0]["context_history"], [320_000])
+
+    def test_advisor_data_toggles(self):
+        with mock.patch.object(watch, "read_codex_quota", return_value=None):
+            self.engine.tick()
+        s = next(iter(self.engine.tailer.sessions.values()))
+        self.assertIn("last_user_prompt", self.engine.llm_context(s, None))
+        self.engine.cfg = dict(CFG, llm=dict(CFG["llm"], send={"prompt": False, "files": False}))
+        ctx = self.engine.llm_context(s, None)
+        self.assertNotIn("last_user_prompt", ctx)
+        self.assertNotIn("recent_files", ctx)
+        self.assertIn("recent_errors", ctx)
+
     def test_sse_stream(self):
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         c.request("GET", "/api/events")

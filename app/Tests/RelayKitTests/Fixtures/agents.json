@@ -1,0 +1,24 @@
+[
+ {
+  "agent": "claude",
+  "config": "/Users/me/.claude/settings.json",
+  "config_exists": true,
+  "hooks": [
+   "SessionStart",
+   "Stop",
+   "UserPromptSubmit"
+  ],
+  "hooks_installed": true,
+  "skill_linked": true,
+  "statusline": true,
+  "autocompact": 350000
+ },
+ {
+  "agent": "codex",
+  "config": "/Users/me/.codex/hooks.json",
+  "config_exists": false,
+  "hooks": [],
+  "hooks_installed": false,
+  "skill_linked": false
+ }
+]

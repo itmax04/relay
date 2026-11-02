@@ -1,0 +1,67 @@
+[
+ {
+  "id": "f4312ca4-e11c-4e8d-b74c-31fcbb0ac8a7",
+  "agent": "claude",
+  "path": "/Users/me/.claude/projects/x/f4312ca4-e11c-4e8d-b74c-31fcbb0ac8a7.jsonl",
+  "project": "demo",
+  "cwd": "/Users/me/Developer/demo",
+  "title": "Demo session",
+  "entrypoint": "claude-desktop",
+  "model": "claude-opus-5-5",
+  "effort": "high",
+  "context": 89865,
+  "peak_context": 89865,
+  "context_window": null,
+  "calls": 5,
+  "turns": 0,
+  "tool_calls": 6,
+  "failures": 0,
+  "idle_seconds": 5,
+  "last_activity": 1793655534.245,
+  "last_prompt": "Fix the failing test in parser.py",
+  "rate_limits": null,
+  "context_history": [
+   120000,
+   150000,
+   89865
+  ]
+ },
+ {
+  "id": "019a-codex",
+  "agent": "codex",
+  "path": "/Users/me/.claude/projects/x/f4312ca4-e11c-4e8d-b74c-31fcbb0ac8a7.jsonl",
+  "project": "demo",
+  "cwd": "/Users/me/Developer/demo",
+  "title": "Demo session",
+  "entrypoint": "claude-desktop",
+  "model": "gpt-6.1-sol",
+  "effort": "medium",
+  "context": 92000,
+  "peak_context": 89865,
+  "context_window": 258000,
+  "calls": 5,
+  "turns": 0,
+  "tool_calls": 6,
+  "failures": 0,
+  "idle_seconds": 5,
+  "last_activity": 1793655534.245,
+  "last_prompt": "Fix the failing test in parser.py",
+  "rate_limits": {
+   "primary": {
+    "used_percent": 91.0,
+    "window_minutes": 300,
+    "resets_at": 1793617963
+   },
+   "secondary": {
+    "used_percent": 69.0,
+    "window_minutes": 10080,
+    "resets_at": 1793879603
+   }
+  },
+  "context_history": [
+   120000,
+   150000,
+   89865
+  ]
+ }
+]
