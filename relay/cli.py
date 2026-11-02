@@ -38,7 +38,26 @@ def main(argv=None):
     r.add_argument("agent", choices=transcripts.AGENTS)
     r.add_argument("--autocompact", action="store_true", help="also drop autoCompactWindow")
 
+    w = sub.add_parser("watch", help="advise on live sessions (rules + LLM), serve the local API")
+    w.add_argument("--port", type=int, help="API port (default: api_port, 8765)")
+    w.add_argument("--no-llm", action="store_true", help="rules only")
+    w.add_argument("--no-notify", action="store_true", help="no macOS notifications")
+    w.add_argument("--once", action="store_true", help="one pass over current sessions, print, exit")
+    w.add_argument("--json", action="store_true", help="with --once: JSON output")
+
+    v = sub.add_parser("advisor", help="LLM advisor tools")
+    v.add_argument("what", choices=["check"], help="check: send one tiny request to every chain entry")
+
     a = p.parse_args(argv)
+    if a.cmd == "watch":
+        from relay import watch
+        cfg = config.load()
+        if a.once:
+            return watch.once(cfg, a.json)
+        return watch.Engine(cfg, use_llm=not a.no_llm, use_notify=not a.no_notify).run(a.port)
+    if a.cmd == "advisor":
+        from relay import providers
+        return providers.check(config.load().get("llm") or {})
     if a.cmd == "hook":
         return guard.run_hook(a.agent)
     if a.cmd == "usage":
