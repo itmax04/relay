@@ -11,12 +11,18 @@ APP=build/Relay.app
 CATALOG=Sources/RelayApp/Resources/Localizable.xcstrings
 LOC=.build/loc-strings
 
-rm -rf "$LOC" && mkdir -p "$LOC"
+# Kept between runs: a build with nothing to recompile emits no .stringsdata, and a module that
+# was not rebuilt (RelayKit) emits none either, so the catalog sync uses the last emitted set.
+# `rm -rf .build` resets it (e.g. after deleting a source file).
+mkdir -p "$LOC"
 swift build -c "$CONFIG" --product RelayApp \
   -Xswiftc -emit-localized-strings -Xswiftc -emit-localized-strings-path -Xswiftc "$LOC"
 
 # Add new UI strings to the catalog (translations are kept; removed strings are marked stale).
-xcrun xcstringstool sync "$CATALOG" --stringsdata "$LOC"/*.stringsdata
+strings=("$LOC"/*.stringsdata(N))
+if (( ${#strings} )); then
+  xcrun xcstringstool sync "$CATALOG" --stringsdata "${strings[@]}"
+fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
