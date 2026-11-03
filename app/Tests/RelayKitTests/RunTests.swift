@@ -55,6 +55,20 @@ final class RunTests: XCTestCase {
     }
 }
 
+final class RunResumeTests: XCTestCase {
+    func testOnlyFailedAndStoppedRunsResume() {
+        XCTAssertEqual(RunStatus.allCases.filter(\.canResume), [.failed, .stopped])
+    }
+
+    func testResumeResultDecodes() throws {
+        let ok = try APIClient.decode(RunControlResult.self, from: Data(#"{"ok": true, "message": "resuming"}"#.utf8))
+        XCTAssertTrue(ok.ok)
+        XCTAssertEqual(ok.message, "resuming")
+        let old = try APIClient.decode(RunControlResult.self, from: Data(#"{"ok": true, "gate": "plan"}"#.utf8))
+        XCTAssertNil(old.message)
+    }
+}
+
 final class AdviceShapeTests: XCTestCase {
     /// Real item from the engine log (2026-11-03): LLM advice from a periodic review had no "rule",
     /// and the whole /api/advice array failed to decode.

@@ -58,6 +58,15 @@ def main(argv=None):
     st = rs.add_parser("start", help="start a run in the foreground")
     st.add_argument("--plan", help="plan file (default: <project>/.relay/plan.md)")
     st.add_argument("--yes", action="store_true", help="the plan is approved; do not wait for approval")
+    st.add_argument("--detach", action="store_true", help="run in the background (survives the terminal); "
+                    "log: runs/<id>/dispatcher.log")
+    st.add_argument("--id", help=argparse.SUPPRESS)
+    st.add_argument("--no-preflight", action="store_true", help=argparse.SUPPRESS)
+    ck = rs.add_parser("check", help="preflight: codex, login, models, plan, Copy sources, disk (no quota used)")
+    ck.add_argument("--plan", help="plan file (default: <project>/.relay/plan.md)")
+    rm_ = rs.add_parser("resume", help="continue a failed or stopped run from its last step commit")
+    rm_.add_argument("id")
+    rm_.add_argument("--detach", action="store_true", help="run in the background")
     rs.add_parser("list", help="runs, newest first")
     for name, text in (("show", "one run as JSON"), ("stop", "stop a run after killing its agent"),
                        ("approve", "approve the plan or [confirm] step a run waits at"),
@@ -117,7 +126,49 @@ def _run(a):
             print(f"no plan at {path}; write one or run: relay plan \"<task>\"", file=sys.stderr)
             return 2
         try:
-            run = dispatch.Run(config.load(os.path.dirname(os.path.abspath(path))), path, approved=a.yes)
+            cfg = config.load(os.path.dirname(os.path.abspath(path)))
+            if a.no_preflight:
+                cfg["run"] = dict(cfg.get("run") or {}, preflight=False)
+            run = dispatch.Run(cfg, path, approved=a.yes, run_id=a.id)
+        except plan.PlanError as e:
+            print(f"plan: {e}", file=sys.stderr)
+            return 2
+        if a.detach:
+            if run.rc.get("preflight", True) and not run.preflight():
+                print("preflight failed; nothing was started", file=sys.stderr)
+                return 1
+            args = ["run", "start", "--plan", os.path.abspath(path), "--id", run.id, "--no-preflight"]
+            dispatch.spawn_detached(run.id, args + (["--yes"] if a.yes else []))
+            print(f"{run.id}  detached; log: {run.dir}/dispatcher.log")
+            return 0
+        return run.start()
+    if a.action == "check":
+        cfg = config.load()
+        path = a.plan or os.path.join(cfg["project_root"], ".relay", "plan.md")
+        if not os.path.isfile(path):
+            print(f"no plan at {path}", file=sys.stderr)
+            return 2
+        try:
+            run = dispatch.Run(config.load(os.path.dirname(os.path.abspath(path))), path)
+        except plan.PlanError as e:
+            print(f"  ERROR plan: {e}")
+            return 1
+        print(f"preflight for {path} ({len(run.plan['steps'])} steps)")
+        ok = run.preflight()
+        print("ready" if ok else "NOT ready")
+        return 0 if ok else 1
+    if a.action == "resume":
+        why = dispatch.resume_problem(a.id)
+        if why:
+            print(f"cannot resume {a.id}: {why}", file=sys.stderr)
+            return 1
+        if a.detach:
+            ok, msg = dispatch.resume_detached(a.id)
+            print(f"{a.id}  {msg}; log: {dispatch.runs_dir()}/{a.id}/dispatcher.log" if ok else msg)
+            return 0 if ok else 1
+        prev = dispatch.load(a.id)
+        try:
+            run = dispatch.Run(config.load(prev["project"]), "", run_id=a.id, resume=True)
         except plan.PlanError as e:
             print(f"plan: {e}", file=sys.stderr)
             return 2

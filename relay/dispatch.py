@@ -8,6 +8,10 @@ retries with the error output (max_retries), raises the tier, and finally stops 
 State lives in <state_dir>/runs/<id>/: run.json (the snapshot `relay watch` serves), plan.md,
 per-attempt logs. The owner controls a running run through files there, written by
 `relay run stop|approve` or the app: `stop`, and `approve-<gate>` for the plan and [confirm] steps.
+
+v1.1 (hardening for a large project): plan fields Copy/Setup/Baseline, environment failures that are
+not retried, retry limits by failure fingerprint, waiting for Codex quota mid-step, a disk guard,
+caffeinate + `--detach`, `resume` after a stop/crash, and a preflight (`relay run check`).
 """
 import datetime
 import glob
@@ -139,6 +143,139 @@ def approve(run_id, gate=None):
     return gate
 
 
+def _ctl_clear(run_id, *names):
+    for n in names:
+        try:
+            os.remove(os.path.join(runs_dir(), run_id, n))
+        except OSError:
+            pass
+
+
+def free_gb(path):
+    os.makedirs(path, exist_ok=True)
+    return shutil.disk_usage(path).free / (1 << 30)
+
+
+def spawn_detached(run_id, args):
+    """Start `relay <args>` in a new session; its output goes to runs/<id>/dispatcher.log."""
+    d = os.path.join(runs_dir(), run_id)
+    os.makedirs(d, exist_ok=True)
+    exe = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "relay")
+    with open(os.path.join(d, "dispatcher.log"), "a") as log:
+        p = subprocess.Popen([sys.executable, exe, *args], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                             start_new_session=True)
+    return p.pid
+
+
+def resume_problem(run_id):
+    """Why a run cannot be resumed, or None."""
+    r = load(run_id)
+    if not r:
+        return f"no run {run_id}"
+    if r.get("status") == "done":
+        return "the run is done"
+    if _alive(r.get("pid")) and r.get("status") not in FINAL:
+        return "the dispatcher is still running"
+    if not r.get("project") or not os.path.isdir(r["project"]):
+        return "the project directory is gone"
+    if not os.path.isfile(os.path.join(runs_dir(), run_id, "plan.md")):
+        return "the run has no stored plan"
+    return None
+
+
+def resume_detached(run_id):
+    """-> (ok, message). Used by the app's Resume button."""
+    why = resume_problem(run_id)
+    if why:
+        return False, why
+    _ctl_clear(run_id, "stop")
+    spawn_detached(run_id, ["run", "resume", run_id])
+    return True, "resuming"
+
+
+# --- preflight ------------------------------------------------------------------------------------
+def _codex_models(rc):
+    path = rc.get("codex_models_cache") or config.home(".codex", "models_cache.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return {m.get("slug") for m in json.load(f).get("models") or [] if isinstance(m, dict)}
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def preflight(rc, project, plan):
+    """-> (errors, warnings, notes). No API call, no quota, no worktree."""
+    errors, warnings, notes = [], [], []
+    codex = rc.get("codex_bin") or "codex"
+    exe = codex if os.path.sep in codex else shutil.which(codex)
+    if not exe or not os.access(exe, os.X_OK):
+        errors.append(f"codex binary not found: {codex} (run.codex_bin)")
+    else:
+        try:
+            v = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=20)
+            notes.append(f"codex: {v.stdout.strip() or v.stderr.strip()}")
+            lg = subprocess.run([exe, "login", "status"], capture_output=True, text=True, timeout=30)
+            if lg.returncode:
+                errors.append("codex is not logged in: " + (_last_line(lg.stdout + lg.stderr) or "login status failed"))
+            else:
+                notes.append("codex login: " + _last_line(lg.stdout + lg.stderr))
+        except (OSError, subprocess.TimeoutExpired) as e:
+            errors.append(f"cannot run {codex}: {e}")
+    known = _codex_models(rc)
+    needed = {(rc["tiers"].get("codex") or {}).get(t, {}).get("model") for s in plan["steps"]
+              for t in TIERS[TIERS.index(s["tier"]):]}
+    if known is None:
+        warnings.append("~/.codex/models_cache.json unreadable; tier models not checked")
+    else:
+        for m in sorted(x for x in needed if x):
+            if m not in known:
+                errors.append(f"model {m} is not in the Codex model list (run.tiers.codex); known: "
+                              + ", ".join(sorted(k for k in known if k)))
+    for s in plan["steps"]:
+        if not s["checks"]:
+            warnings.append(f"step {s['n']} has no Check: the dispatcher can only require a non-empty diff")
+        if not s["files"]:
+            warnings.append(f"step {s['n']} has no Files: any path may change")
+    for c in plan.get("copy") or []:
+        why = copy_problem(project, c)
+        if why:
+            errors.append(f"Copy: {why}")
+    try:
+        _git(project, "rev-parse", "HEAD")
+        dirty = _git(project, "status", "--porcelain", "--untracked-files=no")
+        if dirty:
+            notes.append(f"the project has {len(dirty.splitlines())} uncommitted change(s); the worktree starts from HEAD without them")
+    except RuntimeError as e:
+        errors.append(f"{project} is not a git repository with a commit: {e}")
+    free = free_gb(runs_dir())
+    if free < float(rc["min_free_gb"]):
+        errors.append(f"only {free:.1f} GB free; run.min_free_gb is {rc['min_free_gb']}")
+    else:
+        notes.append(f"disk: {free:.1f} GB free")
+    return errors, warnings, notes
+
+
+def print_preflight(errors, warnings, notes, out):
+    for n in notes:
+        print(f"  ok    {n}", file=out)
+    for w in warnings:
+        print(f"  warn  {w}", file=out)
+    for e in errors:
+        print(f"  ERROR {e}", file=out)
+
+
+def copy_problem(project, rel):
+    """Why `Copy: rel` cannot be done, or None. Only git-ignored paths inside the project qualify."""
+    if os.path.isabs(rel) or ".." in rel.split("/"):
+        return f"{rel}: must be a path inside the project"
+    if not os.path.lexists(os.path.join(project, rel)):
+        return f"{rel}: does not exist in {project}"
+    ign = subprocess.run(["git", "-C", project, "check-ignore", "-q", "--", rel.rstrip("/")], capture_output=True)
+    if ign.returncode:
+        return f"{rel}: is not git-ignored, so a step commit would include it (copy only ignored files)"
+    return None
+
+
 # --- Codex --------------------------------------------------------------------------------------
 FATAL = re.compile(r"model_not_found|not supported when using|requires a newer version|"
                    r"unauthori[sz]ed|not logged in|login required", re.I)
@@ -263,14 +400,55 @@ class Stopped(Exception):
     pass
 
 
+class QuotaWait(Exception):
+    """The agent hit the Codex limit but the reset time is known: wait, then repeat the attempt."""
+
+    def __init__(self, until, why):
+        super().__init__(why)
+        self.until = until
+
+
+# What the checks print when the command itself is missing (the shell's own message, not the tool's).
+ENV_FAIL = re.compile(r"^/bin/sh: .*(command not found|No such file or directory|Permission denied)\s*$", re.M)
+
+
+def env_failure(code, output):
+    return code in (126, 127) or bool(ENV_FAIL.search(output or ""))
+
+
+def fingerprint(kind, failing, output):
+    tail = " ".join("\n".join((output or "").strip().splitlines()[-20:]).split())
+    return "|".join([kind, ";".join(failing), tail])
+
+
+def reset_time(rl, now=None):
+    """Epoch seconds when an exhausted window resets, from a rate_limits reading; None when unknown."""
+    now = now or time.time()
+    best = None
+    for window in ("primary", "secondary"):
+        w = (rl or {}).get(window) or {}
+        used, resets = w.get("used_percent"), w.get("resets_at")
+        if isinstance(used, (int, float)) and isinstance(resets, (int, float)) and used >= 95 and resets > now:
+            best = max(best or 0, resets)
+    return best
+
+
 class Run:
-    def __init__(self, cfg, plan_path, approved=False, out=None, notifier=None, run_id=None):
+    def __init__(self, cfg, plan_path, approved=False, out=None, notifier=None, run_id=None, resume=False):
         self.cfg = cfg
         self.rc = dict(config.DEFAULTS["run"], **(cfg.get("run") or {}))
         self.out = out or sys.stdout
         self.notify = notifier or (lambda title, msg: notify.osascript("relay run", title, msg)
                                    if cfg.get("notify") else None)
-        self.project = config.project_root(os.path.dirname(os.path.abspath(plan_path)))
+        self.resuming = resume
+        if resume:
+            prev = load(run_id)
+            if not prev:
+                raise planlib.PlanError(f"no run {run_id}")
+            plan_path = os.path.join(runs_dir(), run_id, "plan.md")
+            self.project = prev["project"]
+        else:
+            self.project = config.project_root(os.path.dirname(os.path.abspath(plan_path)))
         with open(plan_path, encoding="utf-8") as f:
             self.plan_text = f.read()
         self.plan = planlib.parse(self.plan_text)
@@ -278,7 +456,9 @@ class Run:
         self.dir = os.path.join(runs_dir(), self.id)
         self.approved = approved
         self.active_seconds = 0.0
+        self.attempts_total = 0
         self.proc = None
+        self.caffeinate = None
         self._validate()
 
     def _validate(self):
@@ -334,74 +514,250 @@ class Run:
         self.state["status"], self.state["gate"] = "running", None
         self.save()
 
-    def start(self):
-        os.makedirs(self.dir, exist_ok=True)
-        with open(os.path.join(self.dir, "plan.md"), "w", encoding="utf-8") as f:
-            f.write(self.plan_text)
-        wt = os.path.join(self.dir, "worktree")
-        branch = f"relay/run-{self.id}"
+    def _disk(self):
+        free = free_gb(runs_dir())
+        if free < float(self.rc["min_free_gb"]):
+            raise Stopped(f"disk: only {free:.1f} GB free, below run.min_free_gb={self.rc['min_free_gb']}; "
+                          "free some space and resume")
+
+    def preflight(self):
+        errors, warnings, notes = preflight(self.rc, self.project, self.plan)
+        print_preflight(errors, warnings, notes, self.out)
+        return not errors
+
+    def _init_state(self):
         base = _git(self.project, "rev-parse", "HEAD")
-        dirty = bool(_git(self.project, "status", "--porcelain", "--untracked-files=no"))
+        wt = os.path.join(self.dir, "worktree")
         self.state = {
             "id": self.id, "pid": os.getpid(), "project": self.project, "plan_title": self.plan["title"],
-            "branch": branch, "worktree": wt, "base": base, "created": now_iso(), "updated": now_iso(),
-            "status": "running", "gate": None, "error": None, "current": None,
+            "branch": f"relay/run-{self.id}", "worktree": wt, "base": base, "created": now_iso(),
+            "updated": now_iso(), "status": "running", "gate": None, "error": None, "current": None,
+            "approved": False, "prepared": {}, "resumes": 0,
             "caps": {k: self.rc[k] for k in ("max_steps", "max_minutes", "max_retries", "step_timeout")},
             "steps": [{k: s[k] for k in ("n", "title", "tier", "confirm", "agent", "checks", "files")}
                       | {"status": "pending", "attempts": [], "summary": None, "diffstat": None, "commit": None}
                       for s in self.plan["steps"]],
         }
+
+    def _begin_resume(self):
+        self.state = load(self.id)
+        st = self.state
+        st.update(pid=os.getpid(), status="running", error=None, gate=None, current=None, updated=now_iso(),
+                  resumes=int(st.get("resumes") or 0) + 1)
+        for s in st["steps"]:
+            if s["status"] != "done":
+                s["status"] = "pending"
+        _ctl_clear(self.id, "stop")
+        self._kill_orphan()
+
+    def _kill_orphan(self):
+        """A dispatcher killed with SIGKILL leaves its Codex process (own session) running in the worktree."""
+        pid = ((self.state.get("current") or {}).get("agent_pid"))
+        if not isinstance(pid, int) or not _alive(pid):
+            return
+        cmd = subprocess.run(["ps", "-p", str(pid), "-o", "command="], capture_output=True, text=True).stdout
+        if self.state["worktree"] in cmd:
+            self.say(f"killing the leftover agent process {pid}")
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
+    def _on_signal(self, signum, _frame):
+        raise Stopped(f"dispatcher terminated by signal {signum}")
+
+    def _guard_process(self):
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            try:
+                signal.signal(sig, self._on_signal)
+            except ValueError:  # not the main thread (tests)
+                break
+        if self.rc.get("caffeinate") and os.access("/usr/bin/caffeinate", os.X_OK):
+            self.caffeinate = subprocess.Popen(["/usr/bin/caffeinate", "-i", "-w", str(os.getpid())],
+                                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
+
+    def start(self):
+        if not self.resuming and self.rc.get("preflight", True) and not self.preflight():
+            self.say("preflight failed; nothing was started")
+            return 1
+        os.makedirs(self.dir, exist_ok=True)
+        if self.resuming:
+            self._begin_resume()
+        else:
+            with open(os.path.join(self.dir, "plan.md"), "w", encoding="utf-8") as f:
+                f.write(self.plan_text)
+            self._init_state()
+            if self.approved:
+                self.state["approved"] = True
         self.save()
-        self.say(f"run {self.id}: {len(self.plan['steps'])} steps from {self.plan['title']!r}")
-        if dirty:
+        self._guard_process()
+        branch = self.state["branch"]
+        dirty = bool(_git(self.project, "status", "--porcelain", "--untracked-files=no"))
+        self.say(f"{'resuming' if self.resuming else 'run'} {self.id}: {len(self.plan['steps'])} steps from "
+                 f"{self.plan['title']!r}")
+        if dirty and not self.resuming:
             self.say("note: the project has uncommitted changes; the worktree starts from HEAD without them")
         try:
-            if not self.approved:
+            if not self.state.get("approved"):
                 self.say(f"waiting for plan approval: relay run approve {self.id}  (or the app)")
                 self.notify("Plan waiting for approval", self.plan["title"])
                 self._wait({"id": "plan", "kind": "plan"})
-            _git(self.project, "worktree", "add", "-b", branch, wt, base)
+                self.state["approved"] = True
+                self.save()
+            self._disk()
+            self._worktree()
+            self._prepare()
             prev = None
             for step in self.plan["steps"]:
+                st = self.state["steps"][step["n"] - 1]
+                if st["status"] == "done":
+                    prev = st["summary"]
+                    continue
                 prev = self._step(step, prev)
             self.state["status"] = "done"
             self.say(f"done: branch {branch} has {len(self.plan['steps'])} commits; merge it when ready")
             self.notify("Run finished", f"{self.plan['title']}: branch {branch}")
+            self._cleanup()
         except Stopped as e:
             self.state["status"], self.state["error"] = "stopped", str(e)
-            self.say(f"stopped: {e}")
+            self.say(f"stopped: {e}  (relay run resume {self.id})")
             self.notify("Run stopped", str(e))
         except Exception as e:  # noqa: BLE001 - the run must end with a recorded state
             self.state["status"], self.state["error"] = "failed", str(e)
-            self.say(f"failed: {e}")
+            self.say(f"failed: {e}  (relay run resume {self.id})")
             self.notify("Run failed", str(e))
         finally:
             self._kill()
+            if self.caffeinate and self.caffeinate.poll() is None:
+                self.caffeinate.terminate()
             self.state["current"], self.state["gate"] = None, None
             self.state["updated"] = now_iso()
             self.save()
         return 0 if self.state["status"] == "done" else 1
 
+    # --- worktree: create or reset, copy, setup, baseline ------------------------------------------
+    def _worktree(self):
+        wt, branch, base = self.state["worktree"], self.state["branch"], self.state["base"]
+        if not os.path.isdir(wt):
+            _git(self.project, "worktree", "prune")
+            exists = subprocess.run(["git", "-C", self.project, "rev-parse", "--verify", "-q", branch],
+                                    capture_output=True).returncode == 0
+            if exists:
+                _git(self.project, "worktree", "add", wt, branch)
+            else:
+                _git(self.project, "worktree", "add", "-b", branch, wt, base)
+        if self.resuming:
+            done = [s["commit"] for s in self.state["steps"] if s["status"] == "done" and s["commit"]]
+            target = done[-1] if done else base
+            _git(wt, "reset", "--hard", "-q", target)
+            _git(wt, "clean", "-fdq")  # not -x: copied and installed (ignored) files stay
+            self.say(f"worktree reset to {target[:10]}")
+
+    def _prepare(self):
+        wt, prep = self.state["worktree"], self.state["prepared"]
+        for rel in self.plan.get("copy") or []:
+            self._copy(rel, wt)
+        log = os.path.join(self.dir, "setup.txt")
+        for key, label, timeout in (("setup", "setup", float(self.rc["setup_timeout"])),
+                                    ("baseline", "baseline", float(self.rc["check_timeout"]))):
+            cmds = self.plan.get(key) or []
+            if prep.get(key) or not cmds:
+                continue
+            for c in cmds:
+                self._check_stop()
+                self._disk()
+                self.say(f"{label}: {c}")
+                code, out = self._run_shell(c, wt, timeout)
+                with open(log, "a", encoding="utf-8") as f:
+                    f.write(f"$ {c}\nexit {code}\n{out}\n")
+                if code:
+                    if key == "setup":
+                        raise RuntimeError(f"setup failed: `{c}` exit {code}: {_last_line(out)} (see setup.txt)")
+                    raise RuntimeError(f"baseline failed on the untouched worktree, no agent was started: `{c}` "
+                                       f"exit {code}: {_last_line(out)} (see setup.txt)")
+            left = _dirty(wt)
+            if key == "setup" and left:
+                raise RuntimeError("setup left files that are not git-ignored (a step commit would include them): "
+                                   + ", ".join(sorted(left)[:5]))
+            if key == "baseline":
+                _undo_check_output(wt, {})
+            prep[key] = True
+            self.save()
+
+    def _copy(self, rel, wt):
+        why = copy_problem(self.project, rel)
+        if why:
+            raise RuntimeError(f"Copy: {why}")
+        src, dst = os.path.join(self.project, rel.rstrip("/")), os.path.join(wt, rel.rstrip("/"))
+        if os.path.lexists(dst):
+            return
+        self.say(f"copy: {rel}")
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        if os.path.isdir(src) and not os.path.islink(src):
+            shutil.copytree(src, dst, symlinks=True)
+        else:
+            shutil.copy2(src, dst, follow_symlinks=False)
+
+    def _run_shell(self, command, cwd, timeout):
+        t0 = time.time()
+        try:
+            p = subprocess.run(["/bin/sh", "-c", command], cwd=cwd, capture_output=True, text=True, env=_env(),
+                               timeout=timeout, stdin=subprocess.DEVNULL)
+            return p.returncode, (p.stdout + p.stderr)
+        except subprocess.TimeoutExpired:
+            return 124, f"timed out after {timeout:g} s"
+        finally:
+            self.active_seconds += time.time() - t0
+
+    def _cleanup(self):
+        if self.rc.get("cleanup", "on_done") == "on_done":
+            wt = self.state["worktree"]
+            _git(self.project, "worktree", "remove", "--force", wt, check=False)
+            if not os.path.isdir(wt):
+                self.state["worktree_removed"] = True
+                self.say("worktree removed; the branch keeps the commits")
+
+    # --- steps ---------------------------------------------------------------------------------------
     def _step(self, step, prev_summary):
         st = self.state["steps"][step["n"] - 1]
         self._check_stop()
-        if step["confirm"]:
+        if step["confirm"] and not st.get("confirmed"):
             st["status"] = "waiting"
             self.say(f"step {step['n']} needs confirmation: relay run approve {self.id}")
             self.notify(f"Step {step['n']} waits for you", step["title"])
             self._wait({"id": f"step-{step['n']}", "kind": "confirm", "step": step["n"]})
+            st["confirmed"] = True
         st["status"] = "running"
         failure = None
-        start_tier = TIERS.index(step["tier"])
-        for tier in TIERS[start_tier:]:
-            for _ in range(int(self.rc["max_retries"]) + 1):
+        for tier in TIERS[TIERS.index(step["tier"]):]:
+            tries, last_fp = 0, None
+            while tries <= int(self.rc["max_retries"]):
                 self._check_stop()
+                if self.attempts_total >= int(self.rc["max_attempts"]):
+                    raise Stopped(f"attempt cap reached ({self.rc['max_attempts']}, run.max_attempts)")
+                self._disk()
                 self._quota_gate()
-                ok, failure = self._attempt(step, st, tier, prev_summary, failure)
+                try:
+                    ok, failure = self._attempt(step, st, tier, prev_summary, failure)
+                except QuotaWait as q:
+                    when = datetime.datetime.fromtimestamp(q.until)
+                    self.say(f"Codex quota exhausted mid-step; waiting until {when:%H:%M}")
+                    self.notify("Run waits for Codex quota", f"until {when:%H:%M}")
+                    self._wait({"id": "quota", "kind": "quota", "until": q.until + 1}, until=q.until + 1)
+                    self.state["quota"] = None
+                    continue
+                self.attempts_total += 1
                 if ok:
                     st["status"] = "done"
                     self.save()
                     return st["summary"]
+                tries += 1
+                fp = st["attempts"][-1].get("fingerprint")
+                if fp and fp == last_fp:
+                    self.say(f"step {step['n']}: the same failure twice at tier {tier}, not retrying it")
+                    break
+                last_fp = fp
             if tier != TIERS[-1]:
                 self.say(f"step {step['n']}: tier {tier} used up its attempts, going up")
         st["status"] = "failed"
@@ -447,8 +803,9 @@ class Run:
         except OSError:
             last = ev["messages"][-1] if ev["messages"] else ""
 
-        def fail(kind, text):
+        def fail(kind, text, fp_output=None, failing=()):
             a["result"], a["error"] = kind, _tail(text, 1500)
+            a["fingerprint"] = fingerprint(kind, failing, text if fp_output is None else fp_output)
             self.save()
             self.say(f"  {kind}: {_last_line(text)}")
             return False, text
@@ -460,6 +817,9 @@ class Run:
         if ev["error"] and QUOTA.search(ev["error"]):
             a["result"], a["error"] = "quota", ev["error"]
             self.save()
+            until = reset_time(self.state["quota"]) or reset_time(self._fresh_quota())
+            if until:
+                raise QuotaWait(until, ev["error"])
             raise Stopped(f"Codex quota exhausted: {ev['error']}")
         if timed_out:
             return fail("timeout", f"The agent did not finish within {self.rc['step_timeout']} s.")
@@ -470,21 +830,28 @@ class Run:
 
         # checks
         agent_paths = _dirty(wt)
-        outputs = []
+        outputs, failing, env_bad = [], [], None
         for c in step["checks"]:
             self._check_stop()
             r = self._run_check(c, wt)
             a["checks"].append({"command": c, "exit": r[0]})
             if r[0] != 0:
                 outputs.append(f"$ {c}\nexit {r[0]}\n{_tail(r[1])}")
+                failing.append(c)
+                if env_failure(r[0], r[1]) and not env_bad:
+                    env_bad = f"`{c}` exit {r[0]}: {_last_line(r[1])}"
         with open(base + ".checks.txt", "w", encoding="utf-8") as f:
             f.write("\n\n".join(outputs) or "all checks passed\n")
         _undo_check_output(wt, agent_paths)
+        if env_bad:
+            a["result"], a["error"] = "environment", env_bad
+            self.save()
+            raise RuntimeError(f"environment: a check cannot run, so retrying the agent will not help — {env_bad}")
         _git(wt, "add", "-A")
         changed = [p for p in _git(wt, "diff", "--cached", "--name-only").splitlines() if p]
         outside = [p for p in changed if not planlib.allowed(p, step["files"])]
         if outputs:
-            return fail("checks_failed", "Checks failed:\n" + "\n\n".join(outputs))
+            return fail("checks_failed", "Checks failed:\n" + "\n\n".join(outputs), "\n".join(outputs), failing)
         if not changed:
             return fail("no_changes", "The step changed no files; the dispatcher needs a non-empty diff.")
         if outside:
@@ -505,6 +872,10 @@ class Run:
         self.save()
         return True, None
 
+    def _fresh_quota(self):
+        from relay import watch
+        return watch.read_codex_quota()
+
     def _spawn(self, cmd, cwd, out_path, err_path, timeout):
         t0 = time.time()
         with open(out_path, "w") as out, open(err_path, "w") as err:
@@ -513,6 +884,9 @@ class Run:
                                              start_new_session=True, env=_env())
             except OSError as e:
                 raise RuntimeError(f"cannot start {cmd[0]}: {e}")
+            if self.state.get("current"):
+                self.state["current"]["agent_pid"] = self.proc.pid  # `resume` kills it if we die first
+                self.save()
             try:
                 while self.proc.poll() is None:
                     if self._ctl("stop"):

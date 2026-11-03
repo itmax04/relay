@@ -2,10 +2,12 @@ import Foundation
 
 // Dispatcher runs (`relay run`, relay/dispatch.py), served as GET /api/runs and SSE "run" events.
 
-public enum RunStatus: String, Codable, Sendable {
+public enum RunStatus: String, Codable, Sendable, CaseIterable {
     case running, waiting, done, failed, stopped
 
     public var isActive: Bool { self == .running || self == .waiting }
+    /// A failed or stopped run can continue from its last step commit (`relay run resume`).
+    public var canResume: Bool { self == .failed || self == .stopped }
 }
 
 public struct RunGate: Codable, Hashable, Sendable {
@@ -113,6 +115,8 @@ public struct Run: Codable, Hashable, Sendable, Identifiable {
 public struct RunControlResult: Codable, Sendable {
     public var ok: Bool
     public var gate: String?
+    /// Set by POST /resume: "resuming", or why the run cannot be resumed.
+    public var message: String?
 }
 
 public extension Array where Element == Run {
@@ -132,5 +136,10 @@ public extension APIClient {
 
     func approveRun(_ id: String) async throws -> RunControlResult {
         try await post("/api/runs/\(id)/approve", body: [String: String]())
+    }
+
+    /// Starts a detached dispatcher that continues the run in its existing worktree and branch.
+    func resumeRun(_ id: String) async throws -> RunControlResult {
+        try await post("/api/runs/\(id)/resume", body: [String: String]())
     }
 }

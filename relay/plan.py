@@ -15,6 +15,11 @@ Tags on the step heading: a tier (`light`, `standard`, `strong`; default `standa
 `Check:` may repeat; each is a shell command run in the worktree, and the step passes only when
 all exit 0. `Files:` limits which paths the step may change (a trailing `/` or a directory name
 covers everything under it; shell globs work). Everything else under the heading goes to the agent.
+
+Before the first step, three optional lines prepare the worktree (v1.1):
+`Copy: .env, node_modules` (git-ignored paths copied from the main checkout), `Setup: <command>`
+(repeatable, run once in the worktree) and `Baseline: <command>` (repeatable, must exit 0 before any
+agent runs). They are not sent to the agent.
 """
 import fnmatch
 import re
@@ -24,6 +29,7 @@ AGENTS = ("codex", "claude")
 _STEP = re.compile(r"^##\s+(?:(?:step\s+)?\d+[.):]?\s+)?(.*)$", re.I)
 _TAG = re.compile(r"\[([^\]]+)\]")
 _FIELD = re.compile(r"^(check|files)\s*:\s*(.*)$", re.I)
+_PRE = re.compile(r"^(copy|setup|baseline)\s*:\s*(.*)$", re.I)
 
 
 class PlanError(ValueError):
@@ -40,6 +46,7 @@ def _unquote(s):
 def parse(text):
     """-> {"title", "context", "steps": [{"n", "title", "tier", "confirm", "agent", "checks", "files", "body"}]}"""
     title, context, steps, cur = "", [], [], None
+    pre = {"copy": [], "setup": [], "baseline": []}
     in_code = False
     for line in text.splitlines():
         if line.strip().startswith("```"):
@@ -68,6 +75,14 @@ def parse(text):
             steps.append(cur)
             continue
         if cur is None:
+            f = None if in_code else _PRE.match(line.strip())
+            if f:
+                key, val = f.group(1).lower(), f.group(2)
+                if key == "copy":
+                    pre["copy"] += [_unquote(x) for x in val.split(",") if _unquote(x)]
+                elif _unquote(val):
+                    pre[key].append(_unquote(val))
+                continue
             context.append(line)
             continue
         f = None if in_code else _FIELD.match(line.strip())
@@ -85,7 +100,8 @@ def parse(text):
             raise PlanError(f"step {s['n']}: no title")
     if not steps:
         raise PlanError("no steps: each step starts with a '## ' heading")
-    return {"title": title or "Untitled plan", "context": "\n".join(context).strip(), "steps": steps}
+    return {"title": title or "Untitled plan", "context": "\n".join(context).strip(), "steps": steps,
+            "copy": pre["copy"], "setup": pre["setup"], "baseline": pre["baseline"]}
 
 
 def allowed(path, patterns):
@@ -112,6 +128,9 @@ Reply with the plan only, as Markdown in exactly this format (no text before or 
 # <short plan title>
 
 <1-5 lines of context every step needs: where the code lives, conventions, constraints>
+Copy: <git-ignored files or directories the checks need, from the main checkout, e.g. .env, node_modules; omit if none>
+Setup: `<command run once in the fresh worktree, e.g. npm ci; omit if none>`
+Baseline: `<command that must already exit 0 before any change, e.g. the build or the test suite>`
 
 ## 1. <step title> [light|standard|strong]
 Goal: <what this step changes>
@@ -125,5 +144,6 @@ Rules:
 - Every step needs at least one Check command that runs locally without network access and
   every step must change at least one file.
 - Add [confirm] to a step that deletes data, changes public interfaces or needs the owner's eyes first.
+- Copy/Setup/Baseline lines go before the first step; Setup may only create git-ignored files.
 - At most {max_steps} steps.
 """

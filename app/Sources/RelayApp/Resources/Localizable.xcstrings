@@ -456,6 +456,12 @@
     "Status line" : {
 
     },
+    "Resume" : {
+
+    },
+    "Continues from the last passed step in the same worktree. Unfinished changes of the failed step are discarded." : {
+
+    },
     "Stop" : {
 
     },

@@ -81,3 +81,51 @@ changes the model midway. A new tier means a new process.
 - One light step on `gpt-5.6-luna low` costs ~60K input tokens (~85% cached), mostly Codex's own prompt.
 - Still open: whether `claude -p` stream-json carries rate-limit information (Agent SDK documents
   `rate_limit_event`). Claude support is not built.
+
+## v1.1 — hardening for a large real project (proposed 2026-11-03, Codex only)
+
+The owner wants to test on a large real project right away, on Codex, without a small pilot first.
+Audit of v1 (`relay/dispatch.py` at c44fc75) found these risks; each item names the fix. Defaults in
+`config.DEFAULTS["run"]`; nothing here adds a dependency.
+
+1. **Worktree lacks ignored files and installed deps** (`.env`, `node_modules`, local xcconfig,
+   secrets). Checks then fail on every attempt and the agent is blamed: up to 9 Codex runs per step.
+   Fix: plan preamble fields, parsed by `plan.py` before the first `##` step:
+   - `Copy: <paths>` — ignored files/dirs copied from the main checkout into the worktree after
+     `git worktree add` (missing source → run fails before any agent call);
+   - `Setup: <command>` (repeatable) — run once in the worktree after copying (e.g. `npm ci`);
+   - `Baseline: <command>` (repeatable) — must exit 0 on the untouched worktree (e.g. the build or
+     the existing test suite). Failure → run `failed` with the output, zero agent calls.
+   Setup/baseline output goes to `runs/<id>/setup.txt`. `DRAFT_PROMPT` asks for these fields.
+2. **Environment failures counted as the agent's**. A check exiting 126/127 or printing
+   `command not found` / `No such file or directory` for the command itself → stop the run
+   (`failed`, "environment: …"), no retry.
+3. **Quota burn on hopeless retries**. Default `max_retries` 2 → 1. When two consecutive attempts at
+   one tier end with the same failure fingerprint (result kind + failing check commands + last 20
+   lines of output, whitespace-normalised), skip the rest of that tier. Per-run cap
+   `max_attempts` (default 30) → `stopped`.
+4. **Quota exhausted mid-step stops the run.** Instead: read `codex_rate_limits` of that thread (or
+   `watch.read_codex_quota()`); if a `resets_at` is known, wait at gate `quota` until then and repeat
+   the attempt without counting it; unknown reset → `stopped` as now.
+5. **Disk.** The data volume had 13 GB free (94% used) on 2026-11-03; a SwiftPM worktree build
+   is ~700 MB. `min_free_gb` (default 5): checked before `worktree add` and before each attempt;
+   below it → `stopped` with the free space in the message. `cleanup` (default `on_done`): a `done`
+   run removes its worktree (the branch keeps the commits); failed/stopped runs keep it for inspection.
+6. **A multi-hour run dies with the terminal or Mac sleep.**
+   - `/usr/bin/caffeinate -i -w <dispatcher pid>` started with the run (no-op if missing).
+   - `relay run start --detach`: re-executes itself in a new session with stdout to
+     `runs/<id>/dispatcher.log`, prints the id and exits.
+   - `relay run resume <id>` (also `POST /api/runs/<id>/resume` and a Resume button on the Runs
+     screen for `failed`/`stopped` runs): same worktree and branch; `git reset --hard` +
+     `git clean -fd` (not `-x`, so copied/ignored setup files stay) to the last step commit; skips
+     `done` steps; plan approval is not asked again; attempts history is kept.
+7. **Preflight** (`relay run check [--plan]`, also run at the start of `start`, before the
+   approval wait): codex binary and version; `codex login status`; every tier model present in
+   `~/.codex/models_cache.json` (no API call, no quota); plan parses; steps without `Check:` or
+   `Files:` listed as warnings; `Copy:` sources exist; free disk; git repo with a commit; uncommitted
+   changes in the project noted. Any error → exit 1 before a worktree or an agent run exists.
+
+Not in v1.1: Claude as an agent, weekly quota projection, starting a new run from the app.
+Acceptance: python + swift suites pass with new tests per item (fake codex as in
+`tests/test_dispatch.py`); one real run on a scratch repo exercising Copy/Setup/Baseline, a
+baseline failure (0 Codex calls), detach + resume after `kill` of the dispatcher.

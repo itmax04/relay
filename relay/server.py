@@ -16,6 +16,7 @@ GET  /api/runs                       dispatcher runs, newest first
 GET  /api/runs/<id>                  one run
 POST /api/runs/<id>/stop             {} → stop the run (its agent process is killed)
 POST /api/runs/<id>/approve          {} → approve the plan or [confirm] step the run waits at
+POST /api/runs/<id>/resume           {} → continue a failed/stopped run in a detached dispatcher
 GET  /api/events                     SSE: events "session", "advice", "quota", "run"; ": ping" every 15 s
 
 Requests whose Host is not localhost are refused (DNS rebinding), and POST requires a JSON body
@@ -27,6 +28,8 @@ import re
 import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from relay import dispatch
 
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "[::1]")
 
@@ -130,7 +133,7 @@ def make_handler(engine):
                 return
             path = urllib.parse.urlparse(self.path).path.rstrip("/")
             m = re.fullmatch(r"/api/advice/([^/]+)/outcome", path)
-            rm = re.fullmatch(r"/api/runs/([\w-]+)/(stop|approve)", path)
+            rm = re.fullmatch(r"/api/runs/([\w-]+)/(stop|approve|resume)", path)
             if not m and not rm and path != "/api/config":
                 return self._json(404, {"error": "not found"})
             if not (self.headers.get("Content-Type") or "").startswith("application/json"):
@@ -138,6 +141,9 @@ def make_handler(engine):
             try:
                 n = min(int(self.headers.get("Content-Length") or 0), 100000)
                 body = json.loads(self.rfile.read(n) or b"{}")
+                if rm and rm.group(2) == "resume":
+                    ok, msg = dispatch.resume_detached(rm.group(1))
+                    return self._json(200 if ok else 409, {"ok": ok, "message": msg})
                 if rm:
                     res = engine.run_control(rm.group(1), rm.group(2))
                     return self._json(200 if res["ok"] else 409, res)

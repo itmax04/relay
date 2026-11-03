@@ -44,11 +44,17 @@ DEFAULTS = {
                        "standard": {"model": "claude-sonnet-5-5", "effort": "medium"},
                        "light": {"model": "claude-haiku-5-5", "effort": None}},
         },
-        "max_retries": 2,        # per tier, after the first attempt; then the tier goes up
+        "max_retries": 1,        # per tier, after the first attempt; then the tier goes up
+        "max_attempts": 30,      # agent attempts in the whole run (a quota wait is not counted) → stopped
         "max_steps": 20,
         "max_minutes": 240,      # whole run, waiting for the owner or quota excluded
         "step_timeout": 1800,    # seconds per agent process
         "check_timeout": 600,
+        "setup_timeout": 1800,   # seconds per Setup: command of the plan
+        "min_free_gb": 5,        # stop before a worktree or an attempt when the disk has less free
+        "cleanup": "on_done",    # "on_done": a finished run removes its worktree (the branch stays); "never"
+        "caffeinate": True,      # keep the Mac awake (/usr/bin/caffeinate) while the dispatcher runs
+        "preflight": True,       # `relay run start` checks codex, models, plan and disk first
         # Wait for the window to reset when the 5-hour window is above this, or the week above week_stop.
         "quota_switch_at": 80,
         "quota_week_stop": 98,

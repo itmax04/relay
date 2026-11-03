@@ -132,6 +132,7 @@ enum Theme {
         static let runs = "list.number"
         static let stop = "stop.circle"
         static let approve = "checkmark.seal"
+        static let resume = "arrow.clockwise.circle"
         static let branch = "arrow.triangle.branch"
 
         /// Step status from relay/dispatch.py: pending, waiting, running, done, failed.

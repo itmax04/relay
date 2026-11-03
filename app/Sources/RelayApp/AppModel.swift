@@ -259,6 +259,11 @@ final class AppModel {
         await control { try await self.client.approveRun(run.id) }
     }
 
+    /// Continues a failed or stopped run from its last step commit.
+    func resumeRun(_ run: Run) async {
+        await control { try await self.client.resumeRun(run.id) }
+    }
+
     private func control(_ call: () async throws -> RunControlResult) async {
         do {
             let r = try await call()

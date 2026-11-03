@@ -101,6 +101,15 @@ struct RunCard: View {
             .controlSize(.small)
             .buttonStyle(.borderedProminent)
         }
+        if run.status.canResume {
+            Button {
+                Task { await model.resumeRun(run) }
+            } label: {
+                Label("Resume", systemImage: Theme.Symbols.resume)
+            }
+            .controlSize(.small)
+            .help(Text("Continues from the last passed step in the same worktree. Unfinished changes of the failed step are discarded."))
+        }
         if run.status.isActive {
             Button(role: .destructive) {
                 Task { await model.stopRun(run) }
