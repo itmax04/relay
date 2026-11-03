@@ -53,7 +53,7 @@ struct MenuBarLabel: View {
     }
 
     /// Launch arguments: `--show [now|suggestions|quotas|report|settings]` opens the main window
-    /// on that screen (`--continue` also opens the Continue sheet); `--popover` shows the menu-bar popover content in a window.
+    /// on that screen (`--continue [cwd-part]` also opens the Continue sheet); `--popover` shows the menu-bar popover content in a window.
     private func openRequestedWindows() {
         let args = CommandLine.arguments
         if let i = args.firstIndex(of: "--show") {

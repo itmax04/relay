@@ -8,9 +8,11 @@ struct ContinueSheet: View {
     let target: ContinueTarget
     @State private var copied = false
     @State private var error: String?
+    /// Looked up once, off the main thread: the walk up from cwd touches the file system.
+    @State private var handoff: HandoffInfo?
+    @State private var located = false
 
     private var session: Session? { target.session }
-    private var handoff: HandoffInfo? { session.flatMap(model.handoff(for:)) }
     private var suggested: Suggested? { target.advice?.suggested }
 
     var body: some View {
@@ -40,9 +42,11 @@ struct ContinueSheet: View {
                           systemImage: Theme.Symbols.warning)
                         .foregroundStyle(Theme.Colors.caution)
                 }
-            } else {
+            } else if located {
                 Text("This session has no working directory, so relay cannot find its handoff.")
                     .foregroundStyle(Theme.Colors.secondaryText)
+            } else {
+                ProgressView().controlSize(.small)
             }
             suggestedRow
             if let error { Text(verbatim: error).foregroundStyle(Theme.Colors.danger) }
@@ -66,6 +70,11 @@ struct ContinueSheet: View {
         }
         .padding(Theme.Space.xl)
         .frame(width: Theme.Size.sheetWidth)
+        .task {
+            let cwd = session?.cwd, path = model.handoffPath
+            handoff = await Task.detached { AppModel.handoff(cwd: cwd, handoffPath: path) }.value
+            located = true
+        }
     }
 
     @ViewBuilder private var handoffLine: some View {

@@ -171,4 +171,14 @@ final class DecodingTests: XCTestCase {
         XCTAssertNotNil(info.modified)
         XCTAssertEqual(info.continuationPrompt, "Continue from the handoff at .relay/handoff.md.")
     }
+
+    /// A cwd with no .git/.relay above it (e.g. ~/Downloads) walks up to "/" and stops there.
+    func testHandoffLocationWithoutMarkers() throws {
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent("relay-test-\(UUID().uuidString)/a")
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dir.deletingLastPathComponent()) }
+        XCTAssertEqual(HandoffInfo.projectRoot(for: dir.path), dir.standardizedFileURL.path)
+        XCTAssertEqual(HandoffInfo.projectRoot(for: "/"), "/")
+    }
 }

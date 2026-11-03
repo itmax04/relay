@@ -54,10 +54,13 @@ struct MainWindow: View {
                 screen = launch
                 UserDefaults.standard.removeObject(forKey: "launchScreen")
             }
-            // `--continue`: open the Continue sheet for the newest session (screenshots, checks).
-            if CommandLine.arguments.contains("--continue") {
-                for _ in 0..<20 where model.sessions.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
-                let s = model.sessions.first
+            // `--continue [cwd-part]`: open the Continue sheet for the newest session, or the newest
+            // one whose cwd contains cwd-part (screenshots, checks).
+            let args = CommandLine.arguments
+            if let i = args.firstIndex(of: "--continue") {
+                let part = i + 1 < args.count && !args[i + 1].hasPrefix("--") ? args[i + 1] : nil
+                for _ in 0..<60 where model.sessions.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
+                let s = model.sessions.first { part == nil || $0.cwd?.contains(part!) == true }
                 model.openContinue(session: s, advice: s.flatMap { model.openAdvice(for: $0).first })
             }
         }

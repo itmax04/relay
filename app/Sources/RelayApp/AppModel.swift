@@ -77,8 +77,9 @@ final class AppModel {
         openAdvice.filter { $0.sessionKey == session.key }
     }
 
-    func handoff(for session: Session) -> HandoffInfo? {
-        guard let cwd = session.cwd, !cwd.isEmpty else { return nil }
+    /// Touches the file system: call it off the main thread.
+    nonisolated static func handoff(cwd: String?, handoffPath: String) -> HandoffInfo? {
+        guard let cwd, !cwd.isEmpty else { return nil }
         return HandoffInfo.locate(cwd: cwd, handoffPath: handoffPath)
     }
 

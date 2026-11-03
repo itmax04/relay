@@ -130,13 +130,15 @@ public struct HandoffInfo: Hashable, Sendable {
 
     /// Same rule as `config.project_root`: nearest ancestor holding .git or .relay, else cwd.
     public static func projectRoot(for cwd: String, fileManager fm: FileManager = .default) -> String {
-        var probe = URL(fileURLWithPath: cwd).standardizedFileURL
+        let start = URL(fileURLWithPath: cwd).standardizedFileURL.path
+        var probe = start
         while true {
-            for marker in [".git", ".relay"] where fm.fileExists(atPath: probe.appendingPathComponent(marker).path) {
-                return probe.path
+            for marker in [".git", ".relay"] where fm.fileExists(atPath: (probe as NSString).appendingPathComponent(marker)) {
+                return probe
             }
-            let parent = probe.deletingLastPathComponent()
-            if parent.path == probe.path { return URL(fileURLWithPath: cwd).standardizedFileURL.path }
+            // NSString stops at "/"; URL.deletingLastPathComponent turns "/" into "/.." forever.
+            let parent = (probe as NSString).deletingLastPathComponent
+            if parent == probe || parent.isEmpty { return start }
             probe = parent
         }
     }
