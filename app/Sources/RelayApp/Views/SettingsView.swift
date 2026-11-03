@@ -155,7 +155,7 @@ struct SettingsView: View {
                 }
             }
             if cfg.effective.llm.enabled && (model.health?.llm ?? []).isEmpty {
-                Text("The chain is empty: the engine was started with --no-llm, or the advisor is off.")
+                Text("The chain is empty: no Groq key is loaded, or the engine was started with --no-llm.")
                     .foregroundStyle(Theme.Colors.secondaryText)
             }
             if let error = model.health?.llmLastError {
@@ -203,9 +203,12 @@ struct SettingsView: View {
             Label("\(account): listed in config, no key in Keychain", systemImage: Theme.Symbols.missing)
                 .foregroundStyle(Theme.Colors.secondaryText)
         }
+        // One row per field: in a grouped form a TextField draws its title as the row label and the
+        // input borderless on the right, so squeezing both into one HStack left no visible input.
+        TextField("Account name", text: $newAccount, prompt: Text(verbatim: "default"))
+        SecureField("Groq API key", text: $newKey, prompt: Text(verbatim: "gsk_…"))
         HStack {
-            TextField("Account name", text: $newAccount).frame(width: 140)
-            SecureField("Groq API key", text: $newKey)
+            Spacer()
             Button("Add key") {
                 Task {
                     do {

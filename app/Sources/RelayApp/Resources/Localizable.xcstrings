@@ -434,7 +434,7 @@
     "Suggestions" : {
 
     },
-    "The chain is empty: the engine was started with --no-llm, or the advisor is off." : {
+    "The chain is empty: no Groq key is loaded, or the engine was started with --no-llm." : {
 
     },
     "The engine stopped answering." : {

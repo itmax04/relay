@@ -15,6 +15,7 @@ import json
 import os
 import re
 import socket
+import ssl
 import subprocess
 import time
 import urllib.error
@@ -84,14 +85,32 @@ class ProviderError(Exception):
         self.retry_after = retry_after
 
 
+SYSTEM_CA = "/etc/ssl/cert.pem"
+_ssl_ctx = None
+
+
+def ssl_context(system_ca=SYSTEM_CA):
+    """Verifying TLS context. The python.org build ships no CA bundle until its "Install
+    Certificates" step is run, so every HTTPS call fails; fall back to the macOS system bundle."""
+    global _ssl_ctx
+    if _ssl_ctx is None:
+        ctx = ssl.create_default_context()
+        if not ctx.cert_store_stats()["x509_ca"] and os.path.exists(system_ca):
+            ctx.load_verify_locations(cafile=system_ca)
+        _ssl_ctx = ctx
+    return _ssl_ctx
+
+
 def chat(base_url, key, model, messages, timeout, json_mode=True, max_tokens=600):
     body = {"model": model, "messages": messages, "temperature": 0.2, "max_tokens": max_tokens}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     req = urllib.request.Request(base_url.rstrip("/") + "/chat/completions", data=json.dumps(body).encode(),
-                                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+                                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                                          # Groq's Cloudflare front rejects urllib's default agent (error 1010)
+                                          "User-Agent": "relay"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=ssl_context()) as r:
             data = json.loads(r.read().decode("utf-8", "replace"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
