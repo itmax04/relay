@@ -1,5 +1,6 @@
 """`relay watch`: tail live sessions, apply rules, ask the LLM advisor on triggers, serve the API."""
 import datetime
+import glob
 import io
 import json
 import os
@@ -7,7 +8,7 @@ import sys
 import threading
 import time
 
-from relay import advisor, catalog, config, install, live, notify, providers, rules, server, store, usage
+from relay import advisor, catalog, config, dispatch, install, live, notify, providers, rules, server, store, usage
 
 POLL_SECONDS = 2
 SCAN_SECONDS = 30
@@ -80,6 +81,7 @@ class Engine:
         self.reviewed_at = {}  # session key -> session.calls at the last LLM review
         self.last_scan = 0.0
         self.started = time.time()
+        self.run_stamps = {}  # run id -> run.json mtime, to publish "run" events on change
 
     # --- loop ----------------------------------------------------------------------------------
     def tick(self, now=None):
@@ -95,6 +97,7 @@ class Engine:
                 self.claude_statusline = bool(install.status("claude").get("statusline"))
             for s in self.tailer.poll():
                 self.hub.publish("session", s.snapshot(now))
+            self._poll_runs()
             q = read_claude_quota(self.quota_path)
             if q != self.claude_quota:
                 self.claude_quota = q
@@ -114,6 +117,28 @@ class Engine:
                 if s.context >= big and s.calls - self.reviewed_at.get(key, 0) >= every:
                     self._review(s, None)
             return emitted
+
+    def _poll_runs(self):
+        for path in glob.glob(os.path.join(dispatch.runs_dir(), "*", "run.json")):
+            try:
+                mtime = os.path.getmtime(path)
+            except OSError:
+                continue
+            rid = os.path.basename(os.path.dirname(path))
+            if self.run_stamps.get(rid) != mtime:
+                self.run_stamps[rid] = mtime
+                r = dispatch.load(rid)
+                if r:
+                    self.hub.publish("run", r)
+
+    def runs(self):
+        return dispatch.list_runs()
+
+    def run_control(self, rid, action):
+        if action == "stop":
+            return {"ok": dispatch.request_stop(rid)}
+        gate = dispatch.approve(rid)
+        return {"ok": bool(gate), "gate": gate}
 
     def _emit(self, advice):
         d = self.log.add(advice)

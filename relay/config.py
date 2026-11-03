@@ -28,6 +28,31 @@ DEFAULTS = {
     "notify": True,
     # Optional {model slug: "light" | "standard" | "strong"} to correct guessed tiers.
     "model_tiers": {},
+    # `relay run` (the dispatcher, docs/design/dispatcher.md).
+    "run": {
+        # Agents in order of preference. v1 runs Codex only.
+        "agents": ["codex"],
+        # Codex CLI to run. The Codex CLI 0.144.6 on PATH (checked 2026-11-03) accepts only the
+        # gpt-5.6 models with a ChatGPT login; gpt-6* need a newer Codex.
+        "codex_bin": "codex",
+        # tier -> model + effort, per agent.
+        "tiers": {
+            "codex": {"strong": {"model": "gpt-5.6-sol", "effort": "xhigh"},
+                      "standard": {"model": "gpt-5.6-sol", "effort": "medium"},
+                      "light": {"model": "gpt-5.6-luna", "effort": "low"}},
+            "claude": {"strong": {"model": "claude-opus-5-5", "effort": "high"},
+                       "standard": {"model": "claude-sonnet-5-5", "effort": "medium"},
+                       "light": {"model": "claude-haiku-5-5", "effort": None}},
+        },
+        "max_retries": 2,        # per tier, after the first attempt; then the tier goes up
+        "max_steps": 20,
+        "max_minutes": 240,      # whole run, waiting for the owner or quota excluded
+        "step_timeout": 1800,    # seconds per agent process
+        "check_timeout": 600,
+        # Wait for the window to reset when the 5-hour window is above this, or the week above week_stop.
+        "quota_switch_at": 80,
+        "quota_week_stop": 98,
+    },
     "llm": {
         "enabled": True,
         # Tried in order; a model the account cannot use is skipped for a day.

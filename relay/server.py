@@ -12,7 +12,11 @@ POST /api/config                     partial settings → ~/.config/relay/config
                                      {} re-reads keys (after the app changes the Keychain)
 GET  /api/usage?days=7               `relay usage --json` data (cached 2 min)
 GET  /api/agents                     relay hooks / status line / skill installed per agent
-GET  /api/events                     SSE: events "session", "advice", "quota"; ": ping" every 15 s
+GET  /api/runs                       dispatcher runs, newest first
+GET  /api/runs/<id>                  one run
+POST /api/runs/<id>/stop             {} → stop the run (its agent process is killed)
+POST /api/runs/<id>/approve          {} → approve the plan or [confirm] step the run waits at
+GET  /api/events                     SSE: events "session", "advice", "quota", "run"; ": ping" every 15 s
 
 Requests whose Host is not localhost are refused (DNS rebinding), and POST requires a JSON body
 (a cross-site form cannot send one without a CORS preflight, which is never answered).
@@ -111,6 +115,12 @@ def make_handler(engine):
                 except ValueError:
                     days = 7
                 return self._json(200, engine.usage(days))
+            if path == "/api/runs":
+                return self._json(200, engine.runs())
+            m = re.fullmatch(r"/api/runs/([\w-]+)", path)
+            if m:
+                r = next((x for x in engine.runs() if x["id"] == m.group(1)), None)
+                return self._json(200 if r else 404, r or {"error": "no such run"})
             if path == "/api/events":
                 return self._events()
             self._json(404, {"error": "not found"})
@@ -120,13 +130,17 @@ def make_handler(engine):
                 return
             path = urllib.parse.urlparse(self.path).path.rstrip("/")
             m = re.fullmatch(r"/api/advice/([^/]+)/outcome", path)
-            if not m and path != "/api/config":
+            rm = re.fullmatch(r"/api/runs/([\w-]+)/(stop|approve)", path)
+            if not m and not rm and path != "/api/config":
                 return self._json(404, {"error": "not found"})
             if not (self.headers.get("Content-Type") or "").startswith("application/json"):
                 return self._json(415, {"error": "send application/json"})
             try:
                 n = min(int(self.headers.get("Content-Length") or 0), 100000)
                 body = json.loads(self.rfile.read(n) or b"{}")
+                if rm:
+                    res = engine.run_control(rm.group(1), rm.group(2))
+                    return self._json(200 if res["ok"] else 409, res)
                 if not m:
                     return self._json(200, engine.update_config(body))
                 d = engine.log.set_outcome(m.group(1), body.get("outcome"), body.get("note"))

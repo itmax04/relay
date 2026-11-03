@@ -23,7 +23,9 @@ Then read only the files the current step needs.
 - English UI via the String Catalog (`Localizable.xcstrings`); Russian comes later.
 - Groq key pools across accounts are allowed (owner accepted the AUP risk). The advisor may see
   metrics, prompt text, error excerpts and file names.
-- Repo: `~/Developer/relay`, branch `main`, no remote. Commit on `main` only when asked; never push.
+- Repo: `~/Developer/relay`, branch `main`, remote `origin` = private https://github.com/itmax04/relay.
+  Commit on `main` and push only when the owner asks. Cloud environments do not fit: relay needs
+  this Mac (transcripts, running engine, Xcode, Keychain), so work locally.
 
 ## Layout
 - `relay/` — Python engine (stdlib). `bin/relay` is the CLI entry (`relay watch`, `relay advisor check`,
