@@ -101,8 +101,9 @@ def ssl_context(system_ca=SYSTEM_CA):
     return _ssl_ctx
 
 
-def chat(base_url, key, model, messages, timeout, json_mode=True, max_tokens=600):
+def chat(base_url, key, model, messages, timeout, json_mode=True, max_tokens=600, params=None):
     body = {"model": model, "messages": messages, "temperature": 0.2, "max_tokens": max_tokens}
+    body.update(params or {})  # per-entry extras from the chain spec, e.g. reasoning_effort
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     req = urllib.request.Request(base_url.rstrip("/") + "/chat/completions", data=json.dumps(body).encode(),
@@ -139,8 +140,9 @@ def chat(base_url, key, model, messages, timeout, json_mode=True, max_tokens=600
 
 
 class Entry:
-    def __init__(self, provider, model, base_url, pool):
+    def __init__(self, provider, model, base_url, pool, params=None):
         self.provider, self.model, self.base_url, self.pool = provider, model, base_url, pool
+        self.params = params or {}
         self.cool_until = 0.0
         self.gone_until = 0.0
         self.last_error = None
@@ -167,7 +169,8 @@ class Chain:
                     continue
                 base = base.format(account=account)
             if keys and base:  # Groq limits are per model, so each entry cools its keys on its own
-                self.entries.append(Entry(provider, spec.get("model"), base, KeyPool(keys)))
+                params = {k: v for k, v in spec.items() if k not in ("provider", "model", "base_url")}
+                self.entries.append(Entry(provider, spec.get("model"), base, KeyPool(keys), params))
 
     def __bool__(self):
         return bool(self.entries)
@@ -183,7 +186,7 @@ class Chain:
                 continue
             for i in e.pool.available(now):
                 try:
-                    text = self.chat(e.base_url, e.pool.keys[i], e.model, messages, timeout, json_mode)
+                    text = self.chat(e.base_url, e.pool.keys[i], e.model, messages, timeout, json_mode, params=e.params)
                     e.last_error = None
                     e.pool.cursor = i
                     return text, e.label
@@ -227,7 +230,7 @@ def check(llm, out=None):
         try:
             chat(e.base_url, e.pool.keys[0], e.model,
                  [{"role": "user", "content": 'Reply with the JSON object {"ok": true}.'}],
-                 float(llm.get("timeout") or 25), True, 20)
+                 float(llm.get("timeout") or 25), True, 300, e.params)  # reasoning models think first
             print(f"  ok    {e.label}", file=out)
             ok = True
         except ProviderError as err:

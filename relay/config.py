@@ -31,12 +31,13 @@ DEFAULTS = {
     "llm": {
         "enabled": True,
         # Tried in order; a model the account cannot use is skipped for a day.
-        # Lingo uses Groq openai/gpt-oss-120b, openai/gpt-oss-20b and qwen/qwen3.8-27b, and
-        # Workers AI @cf/openai/gpt-oss-120b / -20b; Groq limits are per organization and model.
+        # A free Groq org sees only these chat models (checked 2026-11-03). Lingo uses the same three;
+        # Groq limits are per organization and model, so a key from another org keeps them apart.
         "chain": [
-            {"provider": "groq", "model": "llama-3.3-70b-versatile"},
-            {"provider": "groq", "model": "minimaxai/minimax-m2.7"},
-            {"provider": "groq", "model": "llama-3.1-8b-instant"},
+            # Extra keys of an entry go into the request body; low reasoning leaves room for the answer.
+            {"provider": "groq", "model": "openai/gpt-oss-120b", "reasoning_effort": "low"},
+            {"provider": "groq", "model": "openai/gpt-oss-20b", "reasoning_effort": "low"},
+            {"provider": "groq", "model": "qwen/qwen3.8-27b"},
             {"provider": "cloudflare", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"},
         ],
         # Keychain accounts under service "relay.groq", one per Groq key (see README).

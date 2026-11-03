@@ -136,16 +136,15 @@ relay watch
 `model_tiers` в конфиге); Claude — встроенный список от 2026-11-02, заменяется файлом
 `~/.config/relay/claude_models.json` того же вида.
 
-Цепочка провайдеров (`llm.chain`): Groq `llama-3.3-70b-versatile` → Groq `minimaxai/minimax-m2.7` →
-Groq `llama-3.1-8b-instant` → Cloudflare Workers AI `@cf/meta/llama-3.3-70b-instruct-fp8-fast` →
+Цепочка провайдеров (`llm.chain`): Groq `openai/gpt-oss-120b` → Groq `openai/gpt-oss-20b` →
+Groq `qwen/qwen3.8-27b` → Cloudflare Workers AI `@cf/meta/llama-3.3-70b-instruct-fp8-fast` →
 только правила. На 429 берётся следующий ключ того же провайдера (ключ отдыхает `retry-after`),
 на 5xx, сетевой ошибке и таймауте провайдер отдыхает `provider_cooldown` (300 с), модель, которой нет
 у аккаунта (404 / `model_not_found`), пропускается сутки.
 
-Модели выбраны так, чтобы не делить дневные лимиты с Lingo: Lingo использует Groq
-`openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.8-27b` и Workers AI `@cf/openai/gpt-oss-*`.
-Лимиты Groq считаются на организацию и модель, поэтому ключи relay лучше брать из отдельных
-организаций Groq. Доступны ли выбранные модели бесплатному аккаунту, покажет `relay advisor check`.
+Бесплатной организации Groq из чат-моделей доступны только эти три (проверено 2026-11-03), и их же
+использует Lingo. Лимиты Groq считаются на организацию и модель, поэтому ключ relay лучше брать из
+отдельной организации Groq. Что видит ключ, покажет `relay advisor check`.
 Бесплатные 10 000 нейронов Workers AI в день общие на весь аккаунт Cloudflare, включая Lingo.
 
 ### Ключи

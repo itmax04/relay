@@ -231,6 +231,7 @@ class FakeOpenAI:
     def __init__(self):
         self.script = {}
         self.seen = []
+        self.bodies = []
         fake = self
 
         class H(BaseHTTPRequestHandler):
@@ -240,6 +241,7 @@ class FakeOpenAI:
             def do_POST(self):
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 fake.seen.append((body["model"], self.headers["Authorization"][7:]))
+                fake.bodies.append(body)
                 replies = fake.script.get(body["model"]) or [(200, None)]
                 status, payload = replies.pop(0) if len(replies) > 1 else replies[0]
                 if status == 200 and payload is None:
@@ -283,6 +285,13 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual([k for _, k in self.fake.seen], ["k1", "k2"])
         self.assertEqual(c.status()[0]["keys_ready"], 1)  # k1 cools for retry-after
         self.assertIn("switch_model", text)
+
+    def test_entry_extras_reach_request_body(self):
+        llm = dict(CFG["llm"], timeout=5, groq_keychain_accounts=[], chain=[
+            {"provider": "groq", "model": "a", "base_url": self.fake.url, "reasoning_effort": "low"}])
+        providers.Chain(llm, env={"RELAY_GROQ_API_KEY": "k"}).complete([{"role": "user", "content": "hi"}])
+        self.assertEqual(self.fake.bodies[0]["reasoning_effort"], "low")
+        self.assertNotIn("base_url", self.fake.bodies[0])
 
     def test_falls_through_on_5xx_and_missing_model(self):
         self.fake.script["gone"] = [(404, {"error": {"code": "model_not_found"}})]
