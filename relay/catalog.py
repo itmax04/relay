@@ -23,6 +23,17 @@ CLAUDE_MODELS = {
 }
 
 TIERS = ("light", "standard", "strong")
+
+# Model and effort per stage tier for the stage rule that `relay install` writes. Codex lists two
+# sets: the first works with the installed CLI, the second once /model offers those models.
+STAGE_TIERS = {
+    "claude": [{"strong": ("claude-opus-5-5", "high"), "standard": ("claude-sonnet-5-5", "medium"),
+                "light": ("claude-haiku-5-5", "low")}],
+    "codex": [{"strong": ("gpt-5.6-sol", "high"), "standard": ("gpt-5.6-terra", "medium"),
+               "light": ("gpt-5.6-luna", "low")},
+              {"when": "if /model lists gpt-6", "strong": ("gpt-6-astra", "high"),
+               "standard": ("gpt-6.1-sol", "medium"), "light": ("gpt-6-luna", "low")}],
+}
 _STRONG = re.compile(r"frontier|most demanding|most capable", re.I)
 _LIGHT = re.compile(r"fast and (affordable|efficient)|easier tasks|lightweight", re.I)
 
@@ -65,6 +76,17 @@ def claude_models(path=None):
     except (OSError, ValueError):
         pass
     return [dict(m, name=m.get("name") or m.get("alias") or m["slug"]) for m in data["models"] if m.get("slug")]
+
+
+def stage_tiers(agent):
+    """One line naming the model and effort per tier, e.g. "strong = Opus 5.5 high; ..."."""
+    names = {m["slug"]: m["name"] for m in claude_models()}
+    parts = []
+    for i, tiers in enumerate(STAGE_TIERS[agent]):
+        line = "; ".join(f"{t} = {names.get(tiers[t][0], tiers[t][0])} {tiers[t][1]}"
+                         for t in reversed(TIERS))
+        parts.append(line if i == 0 else f"({tiers['when']}: {line})")
+    return " ".join(parts)
 
 
 def load(cfg=None):

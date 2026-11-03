@@ -2,6 +2,22 @@
 
 Handover from Claude Code to Codex. Rules and checks are in `AGENTS.md`.
 
+## Stage rule and relay-plan skill (Claude Code session, 2026-11-03, commits 792ec2a + next)
+- `relay install claude|codex` writes a managed block (`<!-- relay:plan-rule begin/end -->`) to
+  `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md`: plan stages with a tier each, stop only when the tier
+  changes or the context passes `soft_limit`, continue in a new session from the handoff. Models per
+  tier: `catalog.STAGE_TIERS` (the only place to change them); the limit: user `soft_limit`.
+  `--no-rule` skips the block, uninstall removes it, broken markers are left alone.
+  Skill `skills/relay-plan` (examples, no model names) is linked like relay-handoff.
+- `/api/agents`: `rule_installed` (block present and current; an outdated block counts as missing,
+  rerun install) and `plan_skill_linked`; Settings → Agents shows "Stage rule" / "Plan skill".
+- Installed for real by the owner's "yes" on 2026-11-03 (backups `*.relay-backup-20261103-191154`).
+  Live Codex check (gpt-5.6-terra, read-only scratch dir): quotes the block, a small question gets a
+  plain answer, a multi-stage task gets a plan with tiers after reading the skill.
+- NOT verified: stop at a stage boundary and at the context limit in a real project. Changing
+  `soft_limit` in Settings does not rewrite the block; rerun `relay install`.
+- Open: rule says "Haiku 5.5 low" but the catalog lists no effort levels for Haiku.
+
 ## Phases
 | Phase | What | State |
 |---|---|---|

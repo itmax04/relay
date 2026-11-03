@@ -8,7 +8,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from relay import config, guard, install, statusline, transcripts  # noqa: E402
+from relay import catalog, config, guard, install, statusline, transcripts  # noqa: E402
 
 
 def claude_line(msg_id, ctx, sidechain=False, out=10):
@@ -216,6 +216,24 @@ class InstallTests(Base):
         install.uninstall("codex")
         with open(path) as f:
             self.assertEqual(f.read(), "Before.\n\nAfter.\n")
+
+    def test_stage_rule_follows_catalog_and_soft_limit(self):
+        names = {m["slug"] for m in catalog.claude_models()}
+        for agent, sets in catalog.STAGE_TIERS.items():
+            for tiers in sets:
+                self.assertTrue(set(catalog.TIERS) <= set(tiers), agent)
+                if agent == "claude":
+                    self.assertTrue({tiers[t][0] for t in catalog.TIERS} <= names)
+        install.install("claude")
+        self.assertTrue(install.status("claude")["rule_installed"])
+        config.save_user({"soft_limit": 120_000})
+        self.assertFalse(install.status("claude")["rule_installed"])  # outdated block counts as missing
+        install.install("claude")
+        with open(os.path.join(self.home, ".claude", "CLAUDE.md")) as f:
+            text = f.read()
+        self.assertIn("context is above 120K", text)
+        self.assertEqual(text.count(install.RULE_BEGIN), 1)
+        self.assertTrue(install.status("claude")["rule_installed"])
 
     def test_stage_rule_skips_broken_markers_and_can_be_left_out(self):
         path = os.path.join(self.home, ".claude", "CLAUDE.md")

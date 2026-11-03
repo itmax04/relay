@@ -11,7 +11,7 @@ import shutil
 import sys
 import time
 
-from relay import config
+from relay import catalog, config
 
 REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 SKILLS = ("relay-handoff", "relay-plan")
@@ -25,15 +25,10 @@ _BLOCK_RE = re.compile(re.escape(RULE_BEGIN) + r".*?" + re.escape(RULE_END), re.
 RULE = """## Stages and model tiers (managed by `relay install`, removed by `relay uninstall`)
 For tasks with several stages (not questions or small edits):
 - Start with a short plan of stages; give each a tier: strong (design, hard debugging), standard (implementation from a plan), light (mechanical edits, tests, docs).
-- Stop only at a stage boundary, when the next stage has a different tier or the context is above 150K.
+- Stop only at a stage boundary, when the next stage has a different tier or the context is above {limit}K.
 - Before stopping: verify the result, update the handoff (relay-handoff skill), write the next stage and its tier in one line.
 - Never switch the model mid-session: continue in a new session from the handoff.
 Tiers: {tiers}. Output format and examples: relay-plan skill."""
-TIERS = {
-    "claude": "strong = Opus 5.5 high; standard = Sonnet 5.5 medium; light = Haiku 5.5 low",
-    "codex": "strong = gpt-5.6-sol high; standard = gpt-5.6-terra medium; light = gpt-5.6-luna low "
-             "(if /model lists gpt-6: gpt-6-astra high; gpt-6.1-sol medium; gpt-6-luna low)",
-}
 
 
 def _cmd(*args):
@@ -86,7 +81,10 @@ def _read_text(path):
 
 
 def rule_block(agent):
-    return f"{RULE_BEGIN}\n{RULE.format(tiers=TIERS[agent])}\n{RULE_END}"
+    """The block for `agent`: models from catalog.STAGE_TIERS, the limit from the user's soft_limit."""
+    limit = config.load_user().get("soft_limit") or config.DEFAULTS["soft_limit"]
+    rule = RULE.format(limit=round(limit / 1000), tiers=catalog.stage_tiers(agent))
+    return f"{RULE_BEGIN}\n{rule}\n{RULE_END}"
 
 
 def _put_rule(agent, path):
@@ -186,7 +184,7 @@ def status(agent):
            "hooks_installed": set(EVENTS) <= set(events),
            "skill_linked": os.path.exists(os.path.join(t["skills"](), "relay-handoff")),
            "plan_skill_linked": os.path.exists(os.path.join(t["skills"](), "relay-plan")),
-           "rule_installed": bool(_BLOCK_RE.search(_read_text(t["instructions"]())))}
+           "rule_installed": rule_block(agent) in _read_text(t["instructions"]())}  # present and current
     if agent == "claude":
         out["statusline"] = "/bin/relay\" statusline" in str((data.get("statusLine") or {}).get("command", ""))
         out["autocompact"] = data.get("autoCompactWindow")
