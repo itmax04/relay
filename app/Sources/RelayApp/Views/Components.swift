@@ -116,9 +116,16 @@ struct QuotaRing: View {
                 .trim(from: 0, to: min((percent ?? 0) / 100, 1))
                 .stroke(color, style: StrokeStyle(lineWidth: line, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-            Text(verbatim: percent.map { "\(Int($0.rounded()))%" } ?? "–")
-                .font(large ? Theme.Fonts.ringLabelLarge : Theme.Fonts.ringLabel)
-                .foregroundStyle(stale ? Theme.Colors.stale : Color.primary)
+            if let percent {
+                Text(verbatim: "\(Int(percent.rounded()))%")
+                    .font(large ? Theme.Fonts.ringLabelLarge : Theme.Fonts.ringLabel)
+                    .foregroundStyle(stale ? Theme.Colors.stale : Color.primary)
+            } else {
+                Image(systemName: Theme.Symbols.noData)
+                    .font(large ? Theme.Fonts.ringLabelLarge : Theme.Fonts.ringLabel)
+                    .foregroundStyle(Theme.Colors.stale)
+                    .accessibilityLabel(Text("No data"))
+            }
         }
         .frame(width: size, height: size)
     }
@@ -160,7 +167,7 @@ struct ModelChips: View {
 
     var body: some View {
         HStack(spacing: Theme.Space.xs) {
-            if let model { Chip(text: model) }
+            if let model { Chip(text: ModelName.display(model)).help(Text(verbatim: model)) }
             if let effort { Chip(text: effort) }
         }
     }
@@ -217,5 +224,21 @@ enum Durations {
         f.allowedUnits = seconds >= 3600 ? [.hour, .minute] : [.minute]
         f.maximumUnitCount = 2
         return f.string(from: TimeInterval(max(seconds, 0))) ?? "\(seconds / 60) min"
+    }
+}
+
+/// What to do when an agent has no usable quota reading; nil when the reading is current.
+enum QuotaHint {
+    static func text(_ agent: Agent, _ state: QuotaState) -> String? {
+        switch (agent, state) {
+        case (_, .ok), (_, .stale):
+            nil
+        case (.claude, .noSource):
+            String(localized: "Claude: no data. Run relay install claude, then send one message in Claude CLI.")
+        case (.claude, .noReading):
+            String(localized: "Claude: no data — open Claude CLI once. The desktop app doesn't share plan usage.")
+        case (.codex, _):
+            String(localized: "Codex: no data yet. It appears after the first Codex turn.")
+        }
     }
 }

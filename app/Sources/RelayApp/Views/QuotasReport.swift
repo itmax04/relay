@@ -10,7 +10,7 @@ struct QuotasView: View {
             ForEach([model.quota.claudeWindows, model.quota.codexWindows], id: \.agent) { q in
                 AgentQuotaCard(quota: q)
             }
-            Text("Claude readings come from the relay status line; Codex readings from its session logs. A reading taken before its window reset is shown grey: the current figure is unknown until the agent runs again.")
+            Text("Claude readings come from the relay status line, which only Claude CLI runs (the Claude desktop app keeps plan usage to itself); Codex readings come from its session logs. A reading taken before its window reset is shown grey: the current figure is unknown until the agent runs again.")
                 .font(Theme.Fonts.caption)
                 .foregroundStyle(Theme.Colors.secondaryText)
         }
@@ -25,9 +25,7 @@ struct AgentQuotaCard: View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
             Text(verbatim: quota.agent.displayName).font(Theme.Fonts.sectionTitle)
             if quota.fiveHour == nil && quota.week == nil {
-                Text(quota.agent == .claude
-                     ? "No reading yet. Install the relay status line (relay install claude) and send a message in Claude Code."
-                     : "No reading yet. Codex records limits in its session logs after the first turn.")
+                Text(verbatim: QuotaHint.text(quota.agent, quota.state(now: model.now)) ?? String(localized: "No reading yet."))
                     .foregroundStyle(Theme.Colors.secondaryText)
             } else {
                 HStack(alignment: .top, spacing: Theme.Space.xl) {

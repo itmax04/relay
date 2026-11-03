@@ -96,10 +96,19 @@
     "Claude" : {
 
     },
-    "Claude readings come from the relay status line; Codex readings from its session logs. A reading taken before its window reset is shown grey: the current figure is unknown until the agent runs again." : {
+    "Claude readings come from the relay status line, which only Claude CLI runs (the Claude desktop app keeps plan usage to itself); Codex readings come from its session logs. A reading taken before its window reset is shown grey: the current figure is unknown until the agent runs again." : {
+
+    },
+    "Claude: no data — open Claude CLI once. The desktop app doesn't share plan usage." : {
+
+    },
+    "Claude: no data. Run relay install claude, then send one message in Claude CLI." : {
 
     },
     "Codex" : {
+
+    },
+    "Codex: no data yet. It appears after the first Codex turn." : {
 
     },
     "Commands and tools the agent ran, with token sizes." : {
@@ -260,13 +269,13 @@
     "No active sessions" : {
 
     },
+    "No data" : {
+
+    },
     "No handoff yet. Ask the current session to write one first (relay-handoff skill), then come back." : {
 
     },
-    "No reading yet. Codex records limits in its session logs after the first turn." : {
-
-    },
-    "No reading yet. Install the relay status line (relay install claude) and send a message in Claude Code." : {
+    "No reading yet." : {
 
     },
     "No suggestions" : {
@@ -477,6 +486,9 @@
 
     },
     "model unavailable" : {
+
+    },
+    "no data" : {
 
     },
     "no keys" : {

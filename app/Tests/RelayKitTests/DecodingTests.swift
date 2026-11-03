@@ -61,6 +61,33 @@ final class DecodingTests: XCTestCase {
         XCTAssertNil(codex.fiveHour!.projectedAtReset(now: after))
     }
 
+    func testQuotaState() throws {
+        let q = try APIClient.decode(QuotaResponse.self, from: fixture("quota"))
+        XCTAssertEqual(q.claudeWindows.state(now: Date(timeIntervalSince1970: 1_793_600_000)), .ok)
+        // Both Codex windows reset after the reading.
+        XCTAssertEqual(q.codexWindows.state(now: Date(timeIntervalSince1970: 1_793_879_603 + 1)), .stale)
+        // Desktop-only Claude use: no reading, and the engine says why.
+        let none = try APIClient.decode(QuotaResponse.self, from: Data("""
+            {"claude": null, "codex": null,
+             "status": {"claude": {"state": "no_reading", "source": "statusline"},
+                        "codex": {"state": "no_reading", "source": "rollout"}}}
+            """.utf8))
+        XCTAssertEqual(none.claudeWindows.state(), .noReading)
+        let noSource = QuotaResponse(status: ["claude": QuotaSourceStatus(state: "no_source", source: "statusline")])
+        XCTAssertEqual(noSource.claudeWindows.state(), .noSource)
+        XCTAssertEqual(QuotaResponse().claudeWindows.state(), .noReading)  // older engine without "status"
+    }
+
+    func testModelDisplayNames() {
+        XCTAssertEqual(ModelName.display("claude-opus-5-5"), "Opus 5.5")
+        XCTAssertEqual(ModelName.display("claude-sonnet-5-5-20261001"), "Sonnet 5.5")
+        XCTAssertEqual(ModelName.display("claude-opus-5-5[1m]"), "Opus 5.5 1M")
+        XCTAssertEqual(ModelName.display("gpt-6.1-sol"), "Sol 6.1")
+        XCTAssertEqual(ModelName.display("gpt-6-astra"), "Astra 6")
+        XCTAssertEqual(ModelName.display("gpt-reserve"), "gpt-reserve")
+        XCTAssertEqual(ModelName.display("codex-auto-review"), "codex-auto-review")
+    }
+
     func testWeeklyForecast() {
         let reset = Date(timeIntervalSince1970: 1_000_000)
         let w = QuotaWindow(usedPercent: 60, resetsAt: reset, windowMinutes: 10_080, readAt: nil)

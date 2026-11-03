@@ -108,6 +108,7 @@ enum Theme {
         static let ok = "checkmark.circle.fill"
         static let missing = "xmark.circle"
         static let warning = "exclamationmark.triangle.fill"
+        static let noData = "questionmark"
 
         static func severity(_ s: Severity?) -> String {
             switch s {

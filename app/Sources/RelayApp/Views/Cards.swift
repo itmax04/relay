@@ -83,20 +83,30 @@ struct AdviceCard: View {
                 Text(verbatim: advice.reason)
                     .foregroundStyle(Theme.Colors.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineLimit(compact ? 3 : nil)
                 if !compact { sourceChips }
-                HStack(spacing: Theme.Space.s) {
-                    actionButton
-                    Spacer()
-                    if compact {
-                        Button("Dismiss") { model.dismiss(advice) }
-                    } else {
-                        feedback
+                // Full labels always: side by side when they fit, else the action on its own row.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Theme.Space.s) {
+                        actionButton
+                        Spacer()
+                        secondaryControls
+                    }
+                    VStack(alignment: .leading, spacing: Theme.Space.s) {
+                        actionButton
+                        secondaryControls
                     }
                 }
             }
         }
         .cardStyle(accent: Theme.Colors.severity(advice.severity))
+    }
+
+    @ViewBuilder private var secondaryControls: some View {
+        if compact {
+            Button("Dismiss") { model.dismiss(advice) }
+        } else {
+            feedback
+        }
     }
 
     private var sourceChips: some View {
@@ -109,7 +119,7 @@ struct AdviceCard: View {
                 Chip(text: String(localized: "Rule"), symbol: Theme.Symbols.rule)
             }
             if let s = advice.suggested {
-                Chip(text: [s.model, s.effort].compactMap { $0 }.joined(separator: " · "))
+                Chip(text: [s.model.map(ModelName.display), s.effort].compactMap { $0 }.joined(separator: " · "))
             }
         }
     }

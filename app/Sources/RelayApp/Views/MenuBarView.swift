@@ -76,25 +76,38 @@ struct MenuBarView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: Theme.Space.m) {
-            ringItem(.claude, model.quota.claudeWindows.week)
-            ringItem(.codex, model.quota.codexWindows.week)
-            Spacer()
-            Button {
-                openMain()
-            } label: {
-                Label("Open relay", systemImage: Theme.Symbols.openWindow)
+        let quotas = [model.quota.claudeWindows, model.quota.codexWindows]
+        return VStack(alignment: .leading, spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.m) {
+                ForEach(quotas, id: \.agent) { ringItem($0) }
+                Spacer()
+                Button {
+                    openMain()
+                } label: {
+                    Label("Open relay", systemImage: Theme.Symbols.openWindow)
+                }
+            }
+            ForEach(quotas, id: \.agent) { q in
+                if let hint = QuotaHint.text(q.agent, q.state(now: model.now)) {
+                    Text(verbatim: hint)
+                        .font(Theme.Fonts.caption)
+                        .foregroundStyle(Theme.Colors.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
 
-    private func ringItem(_ agent: Agent, _ week: QuotaWindow?) -> some View {
-        HStack(spacing: Theme.Space.s) {
+    private func ringItem(_ quota: AgentQuota) -> some View {
+        let week = quota.week
+        let state = quota.state(now: model.now)
+        return HStack(spacing: Theme.Space.s) {
             QuotaRing(percent: week?.usedPercent, stale: week?.isStale(now: model.now) ?? false,
                       warn: model.quotaWarn, high: model.quotaHigh)
             VStack(alignment: .leading) {
-                Text(verbatim: agent.displayName)
-                Text("week").foregroundStyle(Theme.Colors.secondaryText)
+                Text(verbatim: quota.agent.displayName)
+                Text(state == .noReading || state == .noSource ? "no data" : "week")
+                    .foregroundStyle(Theme.Colors.secondaryText)
             }
             .font(Theme.Fonts.caption)
         }

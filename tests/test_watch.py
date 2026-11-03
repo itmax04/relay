@@ -196,6 +196,18 @@ class RuleTests(TmpCase):
         self.assertEqual(self.rules_for([assistant(1, 60_000)], quotas=five)["quota"]["agent"], "codex")
 
 
+    def test_quota_state(self):
+        windows = ("five_hour", "seven_day")
+        self.assertEqual(watch.quota_state(None, windows, T0), "no_reading")
+        self.assertEqual(watch.quota_state(None, windows, T0, source_ready=False), "no_source")
+        self.assertEqual(watch.quota_state({"ts": "x"}, windows, T0), "no_reading")
+        live_week = {"five_hour": {"used_percentage": 40, "resets_at": T0 - 10},
+                     "seven_day": {"used_percentage": 70, "resets_at": T0 + 1e5}}
+        self.assertEqual(watch.quota_state(live_week, windows, T0), "ok")
+        both_reset = {"five_hour": {"resets_at": T0 - 10}, "seven_day": {"resets_at": T0 - 5}}
+        self.assertEqual(watch.quota_state(both_reset, windows, T0), "stale")
+
+
 class CatalogTests(TmpCase):
     def test_codex_tiers_and_hidden_models(self):
         path = os.path.join(self.tmp, "models_cache.json")
@@ -436,6 +448,23 @@ class ApiTests(TmpCase):
             self.assertNotIn("soft_limit", d["user"])
             status, agents = self.req("GET", "/api/agents")
             self.assertEqual([(a["agent"], a["hooks_installed"]) for a in agents], [("claude", False), ("codex", False)])
+
+    def test_quota_endpoint_reports_state(self):
+        status = {"statusline": False}
+        with mock.patch.object(watch, "read_codex_quota", return_value=None), \
+                mock.patch.object(watch.install, "status", side_effect=lambda agent: status):
+            self.engine.tick()
+            self.assertEqual(self.req("GET", "/api/quota")[1]["status"]["claude"],
+                             {"state": "no_source", "source": "statusline"})
+            status["statusline"] = True  # installed, but only the desktop app ran: nothing recorded
+            self.engine.tick(time.time() + watch.SCAN_SECONDS + 1)
+            self.assertEqual(self.req("GET", "/api/quota")[1]["status"]["claude"]["state"], "no_reading")
+            with open(os.path.join(self.tmp, "quota.jsonl"), "w") as f:
+                f.write(json.dumps({"seven_day": {"used_percentage": 30, "resets_at": time.time() + 3600}}) + "\n")
+            self.engine.tick(time.time() + 2 * watch.SCAN_SECONDS + 2)
+        q = self.req("GET", "/api/quota")[1]
+        self.assertEqual((q["claude"]["seven_day"]["used_percentage"], q["status"]["claude"]["state"]), (30, "ok"))
+        self.assertEqual(q["status"]["codex"]["state"], "no_reading")
 
     def test_usage_endpoint_and_context_history(self):
         with mock.patch.object(watch.usage, "data", return_value={"agents": {}}) as data:

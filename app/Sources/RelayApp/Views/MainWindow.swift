@@ -31,6 +31,9 @@ struct MainWindow: View {
     @SceneStorage("screen") private var screen: Screen = .now
 
     var body: some View {
+        // Read through @Bindable so the sheet tracks continueTarget; a Binding(get:) closure is
+        // not observed and the sheet would never open.
+        @Bindable var model = model
         NavigationSplitView {
             List(selection: Binding(get: { Optional(screen) }, set: { screen = $0 ?? .now })) {
                 ForEach(Screen.allCases) { s in
@@ -59,7 +62,7 @@ struct MainWindow: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .showSettings)) { _ in screen = .settings }
-        .sheet(item: Binding(get: { model.continueTarget }, set: { model.continueTarget = $0 })) { target in
+        .sheet(item: $model.continueTarget) { target in
             ContinueSheet(target: target)
                 .environment(model)
         }

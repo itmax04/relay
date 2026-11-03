@@ -14,11 +14,11 @@ CLAUDE_MODELS = {
     "as_of": "2026-11-02",
     "source": "models seen in this Mac's Claude Code transcripts and the Claude Code model list",
     "models": [
-        {"slug": "claude-opus-5-5", "alias": "opus", "tier": "strong",
+        {"slug": "claude-opus-5-5", "name": "Opus 5.5", "alias": "opus", "tier": "strong",
          "efforts": ["low", "medium", "high", "xhigh", "max"]},
-        {"slug": "claude-sonnet-5-5", "alias": "sonnet", "tier": "standard",
+        {"slug": "claude-sonnet-5-5", "name": "Sonnet 5.5", "alias": "sonnet", "tier": "standard",
          "efforts": ["low", "medium", "high", "xhigh", "max"]},
-        {"slug": "claude-haiku-5-5", "alias": "haiku", "tier": "light", "efforts": []},
+        {"slug": "claude-haiku-5-5", "name": "Haiku 5.5", "alias": "haiku", "tier": "light", "efforts": []},
     ],
 }
 
@@ -64,7 +64,7 @@ def claude_models(path=None):
             data = loaded
     except (OSError, ValueError):
         pass
-    return [dict(m, name=m.get("alias") or m["slug"]) for m in data["models"] if m.get("slug")]
+    return [dict(m, name=m.get("name") or m.get("alias") or m["slug"]) for m in data["models"] if m.get("slug")]
 
 
 def load(cfg=None):

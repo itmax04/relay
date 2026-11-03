@@ -119,13 +119,27 @@ public struct ClaudeQuota: Codable, Hashable, Sendable {
     public var ts: String?
 }
 
+/// The engine's verdict on one agent's reading (`relay watch` `quota_state`): "ok", "stale",
+/// "no_reading" or "no_source", and where readings come from ("statusline", "rollout").
+public struct QuotaSourceStatus: Codable, Hashable, Sendable {
+    public var state: String
+    public var source: String?
+
+    public init(state: String, source: String? = nil) {
+        self.state = state
+        self.source = source
+    }
+}
+
 public struct QuotaResponse: Codable, Hashable, Sendable {
     public var claude: ClaudeQuota?
     public var codex: CodexLimits?
+    public var status: [String: QuotaSourceStatus]?
 
-    public init(claude: ClaudeQuota? = nil, codex: CodexLimits? = nil) {
+    public init(claude: ClaudeQuota? = nil, codex: CodexLimits? = nil, status: [String: QuotaSourceStatus]? = nil) {
         self.claude = claude
         self.codex = codex
+        self.status = status
     }
 }
 

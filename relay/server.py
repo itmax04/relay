@@ -3,7 +3,7 @@
 GET  /api/health                     engine status, LLM chain state
 GET  /api/sessions                   active sessions, most recent first
 GET  /api/sessions/<id>              one session
-GET  /api/quota                      latest Claude and Codex quota readings
+GET  /api/quota                      latest Claude and Codex quota readings + "status" (ok/stale/no_reading/no_source)
 GET  /api/catalog                    switchable models per agent
 GET  /api/advice?limit=&session=     advice, newest first
 POST /api/advice/<id>/outcome        {"outcome": "useful" | "wrong" | null, "note": "..."}

@@ -47,10 +47,29 @@ public struct QuotaWindow: Hashable, Sendable {
     }
 }
 
+public enum QuotaState: String, Sendable {
+    case ok
+    /// Every window reset after the reading: the current figure is unknown.
+    case stale
+    /// Nothing recorded yet. For Claude: the status line is installed but only the desktop app ran,
+    /// which does not run it; one Claude CLI message records a reading.
+    case noReading = "no_reading"
+    /// Nothing can record a reading (the relay status line is not installed in Claude Code).
+    case noSource = "no_source"
+}
+
 public struct AgentQuota: Hashable, Sendable {
     public var agent: Agent
     public var fiveHour: QuotaWindow?
     public var week: QuotaWindow?
+    /// The engine's state when the windows are missing; staleness is judged here, against `now`.
+    public var reported: QuotaState?
+
+    public func state(now: Date = Date()) -> QuotaState {
+        let windows = [fiveHour, week].compactMap { $0 }
+        if windows.isEmpty { return reported == .noSource ? .noSource : .noReading }
+        return windows.allSatisfy { $0.isStale(now: now) } ? .stale : .ok
+    }
 }
 
 extension QuotaResponse {
@@ -61,7 +80,7 @@ extension QuotaResponse {
             return QuotaWindow(usedPercent: used, resetsAt: w.resetsAt?.date, windowMinutes: minutes, readAt: read)
         }
         return AgentQuota(agent: .claude, fiveHour: window(claude?.fiveHour, minutes: 300),
-                          week: window(claude?.sevenDay, minutes: 10_080))
+                          week: window(claude?.sevenDay, minutes: 10_080), reported: reported(.claude))
     }
 
     public var codexWindows: AgentQuota {
@@ -72,7 +91,27 @@ extension QuotaResponse {
                                windowMinutes: w.windowMinutes ?? fallback, readAt: read)
         }
         return AgentQuota(agent: .codex, fiveHour: window(codex?.primary, fallback: 300),
-                          week: window(codex?.secondary, fallback: 10_080))
+                          week: window(codex?.secondary, fallback: 10_080), reported: reported(.codex))
+    }
+
+    private func reported(_ agent: Agent) -> QuotaState? {
+        status?[agent.rawValue].flatMap { QuotaState(rawValue: $0.state) }
+    }
+}
+
+// MARK: Model names
+
+public enum ModelName {
+    /// "claude-opus-5-5" → "Opus 5.5", "gpt-6.1-sol" → "Sol 6.1"; a slug that fits neither pattern
+    /// is shown as it is.
+    public static func display(_ slug: String) -> String {
+        if let m = slug.wholeMatch(of: #/claude-([a-z]+)-(\d+)-(\d+)(?:-\d{8})?(\[1m\])?/#) {
+            return "\(m.1.capitalized) \(m.2).\(m.3)" + (m.4 == nil ? "" : " 1M")
+        }
+        if let m = slug.wholeMatch(of: #/gpt-(\d+(?:\.\d+)?)-([a-z]+)/#) {
+            return "\(m.2.capitalized) \(m.1)"
+        }
+        return slug
     }
 }
 

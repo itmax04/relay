@@ -25,6 +25,21 @@ def read_claude_quota(path):
         return None
 
 
+def quota_state(reading, windows, now, source_ready=True):
+    """How far a plan-quota reading can be trusted, so an unknown figure is never shown as a number.
+
+    "ok": at least one window has not reset yet. "stale": every window already reset, so the
+    current figure is unknown. "no_reading": nothing recorded yet. "no_source": nothing can record
+    it (the relay status line is not installed in Claude Code).
+    """
+    if not isinstance(reading, dict):
+        return "no_reading" if source_ready else "no_source"
+    resets = [(reading.get(w) or {}).get("resets_at") for w in windows if isinstance(reading.get(w), dict)]
+    if resets and all(isinstance(r, (int, float)) and r < now for r in resets):
+        return "stale"
+    return "ok" if resets else "no_reading"
+
+
 def read_codex_quota():
     newest = max(live.transcripts.discover("codex", time.time() - 7 * 86400), key=os.path.getmtime, default=None)
     if not newest:
@@ -58,6 +73,9 @@ class Engine:
         self.cat = catalog.load(cfg)
         self.claude_quota = None
         self.codex_quota = None  # from the newest rollout, for when no Codex session is active
+        # Claude plan usage is documented only in Claude CLI's status-line input (rate_limits); the
+        # desktop app does not run the status line, so readings appear only after a CLI turn.
+        self.claude_statusline = True
         self.quota_path = os.path.join(config.state_dir(), "quota.jsonl")
         self.reviewed_at = {}  # session key -> session.calls at the last LLM review
         self.last_scan = 0.0
@@ -74,6 +92,7 @@ class Engine:
                 self.last_scan = now
                 self.cat = catalog.load(self.cfg)
                 self.codex_quota = read_codex_quota()
+                self.claude_statusline = bool(install.status("claude").get("statusline"))
             for s in self.tailer.poll():
                 self.hub.publish("session", s.snapshot(now))
             q = read_claude_quota(self.quota_path)
@@ -192,7 +211,13 @@ class Engine:
             rl = s.rate_limits
             if rl and (codex is None or (rl.get("ts") or "") > (codex.get("ts") or "")):
                 codex = rl
-        return {"claude": self.claude_quota, "codex": codex}
+        now = time.time()
+        return {"claude": self.claude_quota, "codex": codex,
+                "status": {"claude": {"state": quota_state(self.claude_quota, ("five_hour", "seven_day"), now,
+                                                           self.claude_statusline),
+                                      "source": "statusline"},
+                           "codex": {"state": quota_state(codex, ("primary", "secondary"), now),
+                                     "source": "rollout"}}}
 
     def catalog(self):
         return self.cat
