@@ -10,6 +10,8 @@
   ],
   "hooks_installed": true,
   "skill_linked": true,
+  "plan_skill_linked": true,
+  "rule_installed": false,
   "statusline": true,
   "autocompact": 350000
  },

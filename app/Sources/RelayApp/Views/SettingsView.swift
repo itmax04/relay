@@ -283,10 +283,12 @@ struct SettingsView: View {
                         Spacer()
                         status(a.hooksInstalled, "Hooks")
                         status(a.skillLinked, "Handoff skill")
+                        if let plan = a.planSkillLinked { status(plan, "Plan skill") }
+                        if let rule = a.ruleInstalled { status(rule, "Stage rule") }
                         if let line = a.statusline { status(line, "Status line") }
                     }
                     Text(verbatim: a.config).font(Theme.Fonts.caption).foregroundStyle(Theme.Colors.secondaryText)
-                    if !a.hooksInstalled || !a.skillLinked {
+                    if !a.hooksInstalled || !a.skillLinked || a.planSkillLinked == false || a.ruleInstalled == false {
                         let command = "\(EngineLauncher.script(repo: model.repoPath)) install \(a.agent)"
                         HStack {
                             Text(verbatim: command).font(Theme.Fonts.code).textSelection(.enabled)

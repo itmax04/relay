@@ -318,6 +318,9 @@
         }
       }
     },
+    "Plan skill" : {
+
+    },
     "Quit relay" : {
 
     },
@@ -408,6 +411,9 @@
 
     },
     "Soft limit" : {
+
+    },
+    "Stage rule" : {
 
     },
     "Start relay watch" : {

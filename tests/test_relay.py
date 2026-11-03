@@ -178,6 +178,54 @@ class InstallTests(Base):
         data = read_json(os.path.join(self.home, ".codex", "hooks.json"))
         self.assertEqual(set(data["hooks"]), set(install.EVENTS))
         self.assertTrue(os.path.islink(os.path.join(self.home, ".agents", "skills", "relay-handoff")))
+        self.assertTrue(os.path.islink(os.path.join(self.home, ".agents", "skills", "relay-plan")))
+        with open(os.path.join(self.home, ".codex", "AGENTS.md")) as f:
+            self.assertIn("standard = gpt-5.6-terra medium", f.read())
+
+    def test_stage_rule_is_one_block_and_leaves_other_text(self):
+        path = os.path.join(self.home, ".claude", "CLAUDE.md")
+        os.makedirs(os.path.dirname(path))
+        original = "# Mine\n\nKeep this.\n"
+        with open(path, "w") as f:
+            f.write(original)
+        install.install("claude")
+        install.install("claude")
+        with open(path) as f:
+            text = f.read()
+        self.assertTrue(text.startswith(original))
+        self.assertEqual(text.count(install.RULE_BEGIN), 1)
+        self.assertIn("Opus 5.5 high", text)
+        self.assertTrue(os.path.islink(os.path.join(self.home, ".claude", "skills", "relay-plan")))
+        st = install.status("claude")
+        self.assertTrue(st["rule_installed"] and st["plan_skill_linked"] and st["skill_linked"])
+        install.uninstall("claude")
+        with open(path) as f:
+            self.assertEqual(f.read(), original)
+        self.assertFalse(os.path.lexists(os.path.join(self.home, ".claude", "skills", "relay-plan")))
+        self.assertFalse(install.status("claude")["rule_installed"])
+
+    def test_stage_rule_is_updated_in_place(self):
+        path = os.path.join(self.home, ".codex", "AGENTS.md")
+        os.makedirs(os.path.dirname(path))
+        with open(path, "w") as f:
+            f.write(f"Before.\n\n{install.RULE_BEGIN}\nold rule\n{install.RULE_END}\n\nAfter.\n")
+        install.install("codex")
+        with open(path) as f:
+            text = f.read()
+        self.assertEqual(text, f"Before.\n\n{install.rule_block('codex')}\n\nAfter.\n")
+        install.uninstall("codex")
+        with open(path) as f:
+            self.assertEqual(f.read(), "Before.\n\nAfter.\n")
+
+    def test_stage_rule_skips_broken_markers_and_can_be_left_out(self):
+        path = os.path.join(self.home, ".claude", "CLAUDE.md")
+        install.install("claude", rule=False)
+        self.assertFalse(os.path.exists(path))
+        with open(path, "w") as f:
+            f.write(f"{install.RULE_BEGIN}\nno end marker\n")
+        install.install("claude")
+        with open(path) as f:
+            self.assertEqual(f.read(), f"{install.RULE_BEGIN}\nno end marker\n")
 
 
 class StatuslineTests(Base):

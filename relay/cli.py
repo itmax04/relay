@@ -29,10 +29,11 @@ def main(argv=None):
     sub.add_parser("statusline", help="Claude Code status line (reads its JSON on stdin)")
     sub.add_parser("config", help="show the effective settings for the current directory")
 
-    i = sub.add_parser("install", help="add the guard hooks and the handoff skill to an agent")
+    i = sub.add_parser("install", help="add the guard hooks, the skills and the stage rule to an agent")
     i.add_argument("agent", choices=transcripts.AGENTS)
     i.add_argument("--autocompact", type=int, help="Claude Code: auto-compact window in tokens")
     i.add_argument("--no-statusline", action="store_true")
+    i.add_argument("--no-rule", action="store_true", help="skip the stage rule in CLAUDE.md / AGENTS.md")
 
     r = sub.add_parser("uninstall", help="remove relay from an agent")
     r.add_argument("agent", choices=transcripts.AGENTS)
@@ -96,7 +97,7 @@ def main(argv=None):
         print(json.dumps(config.load(), indent=2))
         return 0
     if a.cmd == "install":
-        install.install(a.agent, a.autocompact, not a.no_statusline)
+        install.install(a.agent, a.autocompact, not a.no_statusline, not a.no_rule)
         return 0
     if a.cmd == "uninstall":
         install.uninstall(a.agent, a.autocompact)

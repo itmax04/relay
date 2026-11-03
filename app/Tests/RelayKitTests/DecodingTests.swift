@@ -105,6 +105,8 @@ final class DecodingTests: XCTestCase {
         let agents = try APIClient.decode([AgentStatus].self, from: fixture("agents"))
         XCTAssertEqual(agents.map(\.hooksInstalled), [true, false])
         XCTAssertEqual(agents[0].autocompact, 350_000)
+        XCTAssertEqual(agents.map(\.ruleInstalled), [false, nil])  // older engines omit the rule fields
+        XCTAssertEqual(agents[0].planSkillLinked, true)
 
         let cfg = try APIClient.decode(ConfigView.self, from: fixture("config"))
         XCTAssertEqual(cfg.effective.softLimit, 150_000)

@@ -205,6 +205,8 @@ public struct AgentStatus: Codable, Hashable, Sendable {
     public var hooks: [String]
     public var hooksInstalled: Bool
     public var skillLinked: Bool
+    public var planSkillLinked: Bool?
+    public var ruleInstalled: Bool?
     public var statusline: Bool?
     public var autocompact: Int?
 }
