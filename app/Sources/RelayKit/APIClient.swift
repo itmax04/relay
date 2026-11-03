@@ -160,6 +160,7 @@ public struct SSEParser: Sendable {
         case "session": return (try? d.decode(Session.self, from: payload)).map { [.session($0)] } ?? []
         case "advice": return (try? d.decode(Advice.self, from: payload)).map { [.advice($0)] } ?? []
         case "quota": return (try? d.decode(QuotaResponse.self, from: payload)).map { [.quota($0)] } ?? []
+        case "run": return (try? d.decode(Run.self, from: payload)).map { [.run($0)] } ?? []
         default: return [.other(name)]
         }
     }

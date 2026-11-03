@@ -2,13 +2,14 @@ import RelayKit
 import SwiftUI
 
 enum Screen: String, CaseIterable, Identifiable {
-    case now, suggestions, quotas, report, settings
+    case now, suggestions, runs, quotas, report, settings
     var id: String { rawValue }
 
     var title: LocalizedStringKey {
         switch self {
         case .now: "Now"
         case .suggestions: "Suggestions"
+        case .runs: "Runs"
         case .quotas: "Quotas"
         case .report: "Report"
         case .settings: "Settings"
@@ -19,6 +20,7 @@ enum Screen: String, CaseIterable, Identifiable {
         switch self {
         case .now: Theme.Symbols.now
         case .suggestions: Theme.Symbols.suggestions
+        case .runs: Theme.Symbols.runs
         case .quotas: Theme.Symbols.quotas
         case .report: Theme.Symbols.report
         case .settings: Theme.Symbols.settings
@@ -38,7 +40,7 @@ struct MainWindow: View {
             List(selection: Binding(get: { Optional(screen) }, set: { screen = $0 ?? .now })) {
                 ForEach(Screen.allCases) { s in
                     Label(s.title, systemImage: s.symbol)
-                        .badge(s == .suggestions ? model.openAdvice.count : 0)
+                        .badge(s == .suggestions ? model.openAdvice.count : s == .runs ? model.activeRuns.count : 0)
                         .tag(s)
                 }
             }
@@ -75,6 +77,7 @@ struct MainWindow: View {
         switch screen {
         case .now: NowView()
         case .suggestions: SuggestionsView()
+        case .runs: RunsView()
         case .quotas: QuotasView()
         case .report: ReportView()
         case .settings: SettingsView()

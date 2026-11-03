@@ -203,7 +203,9 @@ relay advisor check
 | `POST /api/config` | частичные настройки → `~/.config/relay/config.json`, применяются сразу; `null` сбрасывает ключ, `{}` перечитывает ключи из Keychain |
 | `GET /api/usage?days=7` | данные `relay usage --json` (кэш 2 мин) |
 | `GET /api/agents` | установлены ли хуки, строка состояния и навык у каждого агента |
-| `GET /api/events` | поток SSE: события `session`, `advice`, `quota` |
+| `GET /api/runs`, `GET /api/runs/<id>` | прогоны диспетчера, новые первыми |
+| `POST /api/runs/<id>/stop`, `POST /api/runs/<id>/approve` | `{}`: остановить прогон / одобрить план или шаг `[confirm]` |
+| `GET /api/events` | поток SSE: события `session`, `advice`, `quota`, `run` |
 
 Журнал советов — `~/.local/state/relay/advice.jsonl` (только дозапись; оценки пишутся отдельными
 строками `{"type": "outcome"}`). Уведомления macOS — только для уровня high, не чаще раза в час на
@@ -211,6 +213,36 @@ relay advisor check
 
 Что из сессии видит LLM-советник, задаёт `llm.send` (`prompt`, `errors`, `files`, `tools`, по
 умолчанию всё `true`); метрики уходят всегда, пока советник включён.
+
+## Диспетчер: `relay run`
+
+Проходит план по шагам, каждый шаг — в новом процессе агента с коротким контекстом (дизайн:
+[docs/design/dispatcher.md](docs/design/dispatcher.md)). Версия 1 работает только с Codex.
+
+```sh
+relay plan "что сделать, в двух-трёх предложениях"   # сильная модель пишет .relay/plan.md (только читает репозиторий)
+relay run start                  # ждёт одобрения плана: relay run approve <id> или кнопка в приложении
+relay run start --yes            # план уже одобрен
+relay run list | show <id> | stop <id> | approve <id> | remove <id>
+```
+
+Формат плана — в начале `relay/plan.py`. Коротко: `## 1. Заголовок [light|standard|strong]`,
+необязательные `[confirm]` и `[agent: codex]`, строки `Check: \`команда\`` (может быть несколько)
+и `Files: пути, каталоги/`; остальной текст уходит агенту.
+
+Как идёт шаг: `codex exec --json -m <модель уровня> -c model_reasoning_effort=<effort> -s workspace-write`
+в worktree `~/.local/state/relay/runs/<id>/worktree` на ветке `relay/run-<id>`. Затем диспетчер сам
+запускает проверки шага, требует непустой diff только в разрешённых файлах и делает коммит.
+Файлы, которые создали сами проверки (кэши, сборка), в шаг не попадают. Неудача → повтор с текстом
+ошибки (`run.max_retries`, по умолчанию 2), потом уровень выше, потом остановка и уведомление.
+Отказ модели (`model_not_found`, «нужна новая версия Codex») останавливает прогон сразу, без повторов.
+Перед шагом проверяется квота Codex: выше `run.quota_switch_at` (80 %) в 5-часовом окне или
+`run.quota_week_stop` (98 %) за неделю — ждём сброса окна. Пуша нет; ветку сливаете вы.
+
+Модели уровней — `run.tiers.codex`. Codex CLI 0.144.6 (тот, что в PATH на 2026-11-03) с входом через
+ChatGPT принимает только `gpt-5.6-*`; модели `gpt-6*` требуют более новой версии Codex. Поэтому по
+умолчанию: strong = `gpt-5.6-sol` xhigh, standard = `gpt-5.6-sol` medium, light = `gpt-5.6-luna` low.
+Другой бинарник Codex задаётся в `run.codex_bin`.
 
 ## Приложение для Mac
 
@@ -244,6 +276,5 @@ relay advisor check
 ## Дальше
 
 Этап 2 — приложение для Mac (`app/`), сделано; визуальный дизайн владелец задаст сам через
-`app/Sources/RelayApp/Theme.swift`. Этап 3 — диспетчер. Он будет запускать шаги плана как отдельные процессы
-(`claude -p`, `codex exec`), выбирать агента, модель и effort по уровню шага и остатку квоты,
-сам прогонять проверки и передавать состояние через handoff.
+`app/Sources/RelayApp/Theme.swift`. Этап 3 — диспетчер `relay run`, версия 1 на Codex сделана.
+Дальше: Claude (`claude -p`) как второй агент с выбором по квоте, запуск прогона из приложения.

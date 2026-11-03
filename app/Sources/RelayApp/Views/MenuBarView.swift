@@ -10,6 +10,7 @@ struct MenuBarView: View {
             header
             Divider()
             if model.engine == .up {
+                ForEach(model.activeRuns.prefix(2)) { RunCard(run: $0, compact: true) }
                 sessionsSection
                 if let top = model.openAdvice.first {
                     AdviceCard(advice: top, compact: true)

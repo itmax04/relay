@@ -22,6 +22,7 @@ final class AppModel {
     var health: Health?
     var sessions: [Session] = []
     var advice: [Advice] = []
+    var runs: [Run] = []
     var quota = QuotaResponse(claude: nil, codex: nil)
     var catalog: Catalog = [:]
     var config: ConfigView?
@@ -149,6 +150,8 @@ final class AppModel {
             if let i = advice.firstIndex(where: { $0.id == a.id }) { advice[i] = a } else { advice.insert(a, at: 0) }
         case .quota(let q):
             quota = q
+        case .run(let r):
+            runs.upsert(r)
         case .other:
             break
         }
@@ -183,23 +186,40 @@ final class AppModel {
     }
 
     func refreshAll() async {
-        async let s = client.sessions()
-        async let a = client.advice()
-        async let q = client.quota()
-        async let c = client.catalog()
-        async let cfg = client.config()
-        async let ag = client.agents()
-        do {
-            (sessions, advice, quota, catalog, config, agents) = try await (s, a, q, c, cfg, ag)
-            lastError = nil
-        } catch {
-            lastError = error.localizedDescription
+        // Each response on its own: one that fails to decode must not blank the others
+        // (2026-11-03: advice without "rule" left the quota rings empty).
+        async let s = Result.of { try await self.client.sessions() }
+        async let a = Result.of { try await self.client.advice() }
+        async let q = Result.of { try await self.client.quota() }
+        async let c = Result.of { try await self.client.catalog() }
+        async let cfg = Result.of { try await self.client.config() }
+        async let ag = Result.of { try await self.client.agents() }
+        var errors: [String] = []
+        func take<T>(_ r: Result<T, Error>, _ name: String, _ set: (T) -> Void) {
+            switch r {
+            case .success(let v): set(v)
+            case .failure(let e): errors.append("\(name): \(e.localizedDescription)")
+            }
         }
+        take(await s, "sessions") { sessions = $0 }
+        take(await a, "advice") { advice = $0 }
+        take(await q, "quota") { quota = $0 }
+        take(await c, "catalog") { catalog = $0 }
+        take(await cfg, "config") { config = $0 }
+        take(await ag, "agents") { agents = $0 }
+        lastError = errors.isEmpty ? nil : errors.joined(separator: "\n")
         keyAccounts = GroqKeychain.accounts()
+        await refreshRuns()
+    }
+
+    /// Separate from refreshAll so an engine without /api/runs (older build) still loads the rest.
+    func refreshRuns() async {
+        if let r = try? await client.runs() { runs = r }
     }
 
     func refreshLive() async {
         if let s = try? await client.sessions() { sessions = s }
+        await refreshRuns()
         if let h = try? await client.health() { health = h }
     }
 
@@ -226,6 +246,28 @@ final class AppModel {
     }
 
     func dismiss(_ advice: Advice) { dismissed.insert(advice.id) }
+
+    var activeRuns: [Run] { runs.filter { $0.status.isActive } }
+
+    /// Stop kills the run's agent process; the dispatcher records the run as stopped.
+    func stopRun(_ run: Run) async {
+        await control { try await self.client.stopRun(run.id) }
+    }
+
+    /// Approves the plan or [confirm] step the run waits at.
+    func approveRun(_ run: Run) async {
+        await control { try await self.client.approveRun(run.id) }
+    }
+
+    private func control(_ call: () async throws -> RunControlResult) async {
+        do {
+            let r = try await call()
+            lastError = r.ok ? nil : String(localized: "The run did not accept the request.")
+        } catch {
+            lastError = error.localizedDescription
+        }
+        await refreshRuns()
+    }
 
     /// Writes settings through the engine (it owns ~/.config/relay/config.json and applies them live).
     @discardableResult
@@ -259,5 +301,11 @@ final class AppModel {
 
     func openContinue(session: Session?, advice: Advice?) {
         continueTarget = ContinueTarget(session: session ?? advice.flatMap(self.session(for:)), advice: advice)
+    }
+}
+
+extension Result where Failure == Error {
+    static func of(_ body: () async throws -> Success) async -> Result {
+        do { return .success(try await body()) } catch { return .failure(error) }
     }
 }

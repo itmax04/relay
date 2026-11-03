@@ -66,6 +66,26 @@ enum Theme {
         static let chartClaude = Color(nsColor: .systemOrange)
         static let chartCodex = Color(nsColor: .systemTeal)
 
+        static func run(_ s: RunStatus) -> Color {
+            switch s {
+            case .running: neutral
+            case .waiting: caution
+            case .done: ok
+            case .failed: danger
+            case .stopped: stale
+            }
+        }
+
+        static func step(_ status: String) -> Color {
+            switch status {
+            case "done": ok
+            case "running": neutral
+            case "waiting": caution
+            case "failed": danger
+            default: stale
+            }
+        }
+
         static func severity(_ s: Severity) -> Color {
             switch s {
             case .info: neutral
@@ -109,6 +129,21 @@ enum Theme {
         static let missing = "xmark.circle"
         static let warning = "exclamationmark.triangle.fill"
         static let noData = "questionmark"
+        static let runs = "list.number"
+        static let stop = "stop.circle"
+        static let approve = "checkmark.seal"
+        static let branch = "arrow.triangle.branch"
+
+        /// Step status from relay/dispatch.py: pending, waiting, running, done, failed.
+        static func step(_ status: String) -> String {
+            switch status {
+            case "done": "checkmark.circle.fill"
+            case "running": "circle.dotted.circle"
+            case "waiting": "pause.circle"
+            case "failed": "xmark.circle.fill"
+            default: "circle"
+            }
+        }
 
         static func severity(_ s: Severity?) -> String {
             switch s {

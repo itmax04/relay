@@ -1,6 +1,7 @@
 # relay — dispatcher (phase 3) design
 
-Status: agreed with the owner on 2026-11-03. Nothing is implemented yet.
+Status: agreed with the owner on 2026-11-03. v1 (Codex only) implemented on 2026-11-03:
+`relay/plan.py`, `relay/dispatch.py`, `relay plan`, `relay run`, `/api/runs`, the app's Runs screen.
 
 The dispatcher (`relay run`) works through a plan one step at a time. Each step runs in a fresh
 agent process, with the model and effort chosen from the step's tier and the current quota. Short
@@ -65,9 +66,18 @@ Claude CLI was not logged in, while Codex was logged in through ChatGPT.
 Plain CLI subprocesses: no Agent SDK, no Codex app-server, no new dependencies. A step never
 changes the model midway. A new tier means a new process.
 
-## To verify while building
+## Found while building (2026-11-03)
 
-- Whether `claude -p` stream-json carries rate-limit information. The Agent SDK documents
-  `rate_limit_event`.
-- Where Codex quota appears in `codex exec --json` output: `turn.completed` or the rollout's `rate_limits`.
-- Exact Codex model names for each tier.
+- `codex exec --json` (0.144.6) emits `thread.started`, `item.*`, `turn.completed {usage}` or
+  `turn.failed {error.message}`; no rate limits. The rollout
+  `~/.codex/sessions/YYYY/MM/DD/rollout-*-<thread_id>.jsonl` carries `rate_limits` (primary 5 h,
+  secondary week), which the dispatcher reads after each step.
+- Codex CLI 0.144.6 with a ChatGPT login accepts only `gpt-5.6-sol|terra|luna`. `gpt-6.1-sol` →
+  "not supported when using Codex with a ChatGPT account"; `gpt-6-astra` → "requires a newer version
+  of Codex". ChatGPT.app bundles codex-cli 0.166.0-alpha, which lists the gpt-6 models.
+  Running the old CLI rewrites `~/.codex/models_cache.json` with its own (5.6-only) list.
+- A step's checks can leave files (Python `__pycache__`); they are removed before staging, and
+  agent and checks run with `PYTHONDONTWRITEBYTECODE=1`.
+- One light step on `gpt-5.6-luna low` costs ~60K input tokens (~85% cached), mostly Codex's own prompt.
+- Still open: whether `claude -p` stream-json carries rate-limit information (Agent SDK documents
+  `rate_limit_event`). Claude support is not built.

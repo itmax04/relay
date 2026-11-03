@@ -67,7 +67,8 @@ public enum Outcome: String, Codable, Sendable {
 public struct Advice: Codable, Identifiable, Hashable, Sendable {
     public var id: String
     public var key: String?
-    public var rule: String
+    /// Missing in LLM advice from periodic reviews written before 2026-11-03 (the engine now sends "review").
+    public var rule: String?
     public var agent: String?
     public var session: String?
     public var project: String?
@@ -263,6 +264,7 @@ public enum ServerEvent: Sendable {
     case session(Session)
     case advice(Advice)
     case quota(QuotaResponse)
+    case run(Run)
     case other(String)
 }
 

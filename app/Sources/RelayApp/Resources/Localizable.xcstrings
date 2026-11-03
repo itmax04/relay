@@ -20,6 +20,16 @@
     "%lld failed tools" : {
 
     },
+    "%lld of %lld steps done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld steps done"
+          }
+        }
+      }
+    },
     "%lld sessions" : {
 
     },
@@ -79,6 +89,12 @@
 
     },
     "All" : {
+
+    },
+    "Approve plan" : {
+
+    },
+    "Approve step" : {
 
     },
     "At this pace: ~%lld%% by reset" : {
@@ -278,6 +294,9 @@
     "No reading yet." : {
 
     },
+    "No runs yet" : {
+
+    },
     "No suggestions" : {
 
     },
@@ -319,6 +338,9 @@
       }
     },
     "Plan skill" : {
+
+    },
+    "Plans that relay run works through step by step, each in a fresh agent process." : {
 
     },
     "Quit relay" : {
@@ -379,6 +401,9 @@
         }
       }
     },
+    "Runs" : {
+
+    },
     "Runs out %@ (%@)" : {
       "localizations" : {
         "en" : {
@@ -431,6 +456,12 @@
     "Status line" : {
 
     },
+    "Stop" : {
+
+    },
+    "Stops the run and its agent process. Commits made so far stay on the run's branch." : {
+
+    },
     "Subscription limits: 5-hour and weekly windows. Percent of quota, not dollars." : {
 
     },
@@ -444,6 +475,9 @@
 
     },
     "The engine stopped answering." : {
+
+    },
+    "The run did not accept the request." : {
 
     },
     "This session has no working directory, so relay cannot find its handoff." : {
@@ -474,6 +508,9 @@
 
     },
     "Where the tokens went (relay usage). Context is re-sent with every call." : {
+
+    },
+    "Write .relay/plan.md in a project (or draft one with `relay plan \"<task>\"`), then start it with `relay run start` in that project." : {
 
     },
     "Wrong" : {

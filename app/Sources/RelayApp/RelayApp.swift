@@ -52,7 +52,7 @@ struct MenuBarLabel: View {
             .accessibilityLabel(Text("relay"))
     }
 
-    /// Launch arguments: `--show [now|suggestions|quotas|report|settings]` opens the main window
+    /// Launch arguments: `--show [now|suggestions|runs|quotas|report|settings]` opens the main window
     /// on that screen (`--continue [cwd-part]` also opens the Continue sheet); `--popover` shows the menu-bar popover content in a window.
     private func openRequestedWindows() {
         let args = CommandLine.arguments
