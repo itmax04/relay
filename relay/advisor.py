@@ -110,7 +110,11 @@ class Advisor:
         fields = parse(text, agent, cat)
         if not fields:
             return None
-        advice = {k: v for k, v in (trigger or {}).items() if k in ("rule", "agent", "session", "project", "metrics")}
+        # Periodic reviews have no rule trigger, but still belong to a session.
+        advice = {"rule": "review", "agent": agent, "session": session_key.partition(":")[2],
+                  "project": ctx.get("project"), "session_title": ctx.get("session_title")}
+        advice.update({k: v for k, v in (trigger or {}).items()
+                       if k in ("rule", "agent", "session", "project", "metrics")})
         advice.update(fields)
         advice.update(source=f"llm:{label}", trigger=(trigger or {}).get("id"),
                       key=f"llm:{session_key}:{int(self.clock())}")

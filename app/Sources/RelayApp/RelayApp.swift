@@ -18,6 +18,7 @@ struct RelayApp: App {
         Window("relay", id: "main") {
             MainWindow()
                 .environment(model)
+                .background(WindowRouting.WindowAccessor(id: "main"))
                 .frame(minWidth: Theme.Size.windowMin.width, minHeight: Theme.Size.windowMin.height)
         }
         .defaultSize(width: 1000, height: 680)
@@ -26,6 +27,7 @@ struct RelayApp: App {
         Window("relay menu", id: "popover") {
             MenuBarView()
                 .environment(model)
+                .background(WindowRouting.WindowAccessor(id: "popover"))
         }
         .windowResizability(.contentSize)
 
@@ -65,13 +67,57 @@ struct MenuBarLabel: View {
         }
         if args.contains("--popover") {
             openWindow(id: "popover")
-            WindowRouting.bringToFront()
+            WindowRouting.bringToFront(id: "popover")
         }
     }
 }
 
-enum WindowRouting {
-    @MainActor static func bringToFront() {
+@MainActor enum WindowRouting {
+    private static var pendingWindow: String?
+
+    static func bringToFront(id: String = "main") {
+        pendingWindow = id
+        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == id }) {
+            show(window)
+        }
+        // A new SwiftUI window is registered by WindowAccessor once it is attached.
+    }
+
+    private static func show(_ window: NSWindow) {
+        pendingWindow = nil
+        window.collectionBehavior.remove(.canJoinAllSpaces)
+        window.collectionBehavior.formUnion([.moveToActiveSpace, .fullScreenAuxiliary])
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    struct WindowAccessor: NSViewRepresentable {
+        let id: String
+
+        func makeNSView(context: Context) -> WindowView { WindowView(id: id) }
+        func updateNSView(_ nsView: WindowView, context: Context) {}
+    }
+
+    final class WindowView: NSView {
+        let id: String
+
+        init(id: String) {
+            self.id = id
+            super.init(frame: .zero)
+        }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window else { return }
+            window.identifier = NSUserInterfaceItemIdentifier(id)
+            window.collectionBehavior.remove(.canJoinAllSpaces)
+            window.collectionBehavior.formUnion([.moveToActiveSpace, .fullScreenAuxiliary])
+            // SwiftUI may still be updating its view hierarchy during attachment.
+            DispatchQueue.main.async { [weak window] in
+                if pendingWindow == self.id, let window { show(window) }
+            }
+        }
     }
 }

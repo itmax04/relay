@@ -365,6 +365,17 @@ class AdvisorTests(ProviderTests):
         self.assertIsNone(a.handle("k", "claude", {}, None, cat=CAT))
         self.assertIn("exhausted", a.last_error)
 
+    def test_periodic_review_keeps_session_identity(self):
+        got = []
+        a = advisor.Advisor(CFG["llm"], self.chain("m"), got.append)
+        ctx = {"project": "p", "session_title": "Working session"}
+        d = a.handle("claude:s1", "claude", ctx, None, cat=CAT)
+        self.assertEqual((d["agent"], d["session"], d["project"], d["session_title"]),
+                         ("claude", "s1", "p", "Working session"))
+        self.assertIsNone(d["trigger"])
+        self.assertEqual(d["rule"], "review")  # the app requires a rule on every advice item
+        self.assertEqual(got, [d])
+
 
 class StoreNotifyTests(TmpCase):
     def test_log_dedupes_and_keeps_outcomes(self):

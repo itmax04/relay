@@ -179,7 +179,8 @@ class Engine:
         send = (self.cfg.get("llm") or {}).get("send") or {}
         allowed = {k: send.get(k, True) is not False for k in ("prompt", "errors", "files", "tools")}
         ctx = {
-            "agent": s.agent, "project": s.project, "model": s.model, "effort": s.effort,
+            "agent": s.agent, "project": s.project, "session_title": s.title,
+            "model": s.model, "effort": s.effort,
             "context_tokens": s.context, "context_window": s.context_window, "peak_context": s.peak_context,
             "soft_limit": self.cfg["soft_limit"], "hard_limit": self.cfg["hard_limit"],
             "idle_seconds": snap["idle_seconds"], "cache_ttl_seconds": (self.cfg["cache_ttl"] or {}).get(s.agent),

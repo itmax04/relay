@@ -119,7 +119,7 @@ enum TerminalLauncher {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let file = dir.appendingPathComponent("relay-\(UUID().uuidString.prefix(8)).command")
         // The file removes itself, then replaces the shell with the agent.
-        let body = "#!/bin/zsh -l\nrm -f \(ShellQuote.quote(file.path))\n\(command)\n"
+        let body = "#!/bin/zsh -l\nexport PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\"\nrm -f \(ShellQuote.quote(file.path))\n\(command)\n"
         try body.write(to: file, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: file.path)
         let terminal = URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app")
