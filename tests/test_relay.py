@@ -182,6 +182,60 @@ class InstallTests(Base):
         with open(os.path.join(self.home, ".codex", "AGENTS.md")) as f:
             self.assertIn("standard = gpt-5.6-terra medium", f.read())
 
+    def test_skill_pack_is_linked_whole_and_shipped_with_licenses(self):
+        pack = install.bundled_skills()
+        self.assertTrue({"relay-handoff", "relay-plan", "ponytail", "diagnosing-bugs", "grilling", "tdd",
+                         "writing-for-agents", "verification-before-completion"} <= set(pack))
+        with open(os.path.join(install.REPO, "skills", "THIRD_PARTY.md")) as f:
+            notes = f.read()
+        for name in pack:
+            if not name.startswith("relay-"):
+                self.assertTrue(os.path.isfile(os.path.join(install.REPO, "skills", name, "LICENSE")), name)
+                self.assertIn(f"| `{name}` |", notes)
+        install.install("claude")
+        install.install("codex")
+        for folder in (os.path.join(self.home, ".claude", "skills"), os.path.join(self.home, ".agents", "skills")):
+            self.assertEqual(sorted(os.listdir(folder)), pack)
+            for name in pack:
+                self.assertEqual(os.path.realpath(os.path.join(folder, name)),
+                                 os.path.realpath(os.path.join(install.REPO, "skills", name)))
+        st = install.status("codex")
+        self.assertEqual((st["skills_linked"], st["skills_missing"]), (pack, []))
+        install.uninstall("codex")
+        self.assertEqual(os.listdir(os.path.join(self.home, ".agents", "skills")), [])
+        self.assertEqual(install.status("codex")["skills_missing"], pack)
+
+    def test_skill_pack_leaves_foreign_entries_alone(self):
+        folder = os.path.join(self.home, ".claude", "skills")
+        os.makedirs(os.path.join(folder, "tdd"))  # the owner's own skill with the same name
+        with open(os.path.join(folder, "tdd", "SKILL.md"), "w") as f:
+            f.write("mine")
+        elsewhere = os.path.join(self.home, "elsewhere", "grilling")
+        os.makedirs(elsewhere)
+        os.symlink(elsewhere, os.path.join(folder, "grilling"))  # a foreign link
+        os.symlink(os.path.join(self.home, "gone"), os.path.join(folder, "ponytail"))  # a dangling foreign link
+        old = os.path.join(self.home, "old-relay")  # relay links from another checkout are replaced/removed
+        os.makedirs(os.path.join(old, "relay"))
+        open(os.path.join(old, "relay", "install.py"), "w").close()
+        for name in ("relay-plan", "retired-skill"):
+            os.makedirs(os.path.join(old, "skills", name))
+            os.symlink(os.path.join(old, "skills", name), os.path.join(folder, name))
+        out = io.StringIO()
+        with mock.patch("sys.stdout", out):
+            install.install("claude")
+        for name in ("tdd", "grilling", "ponytail"):
+            self.assertIn(f"skip skill: {os.path.join(folder, name)} exists and is not a relay link", out.getvalue())
+        with open(os.path.join(folder, "tdd", "SKILL.md")) as f:
+            self.assertEqual(f.read(), "mine")
+        self.assertEqual(os.readlink(os.path.join(folder, "grilling")), elsewhere)
+        self.assertEqual(os.path.realpath(os.path.join(folder, "relay-plan")),
+                         os.path.realpath(os.path.join(install.REPO, "skills", "relay-plan")))
+        self.assertEqual(set(install.status("claude")["skills_missing"]), {"tdd", "grilling", "ponytail"})
+        with mock.patch("sys.stdout", io.StringIO()):
+            install.uninstall("claude")
+        self.assertEqual(sorted(os.listdir(folder)), ["grilling", "ponytail", "tdd"])
+        self.assertTrue(os.path.isdir(elsewhere))
+
     def test_stage_rule_is_one_block_and_leaves_other_text(self):
         path = os.path.join(self.home, ".claude", "CLAUDE.md")
         os.makedirs(os.path.dirname(path))

@@ -1,6 +1,25 @@
-# relay — status (2026-11-03, at 6b2950f)
+# relay — status (2026-11-07, on top of 7155f7c)
 
-Handover from Claude Code to Codex. Rules and checks are in `AGENTS.md`.
+Rules and checks are in `AGENTS.md`.
+
+## Third-party skill pack (Claude Code session, 2026-11-07, not committed yet)
+- Six small MIT skills copied unchanged into `skills/<name>/` with the upstream `LICENSE`; source
+  repo and pinned commit of each in `skills/THIRD_PARTY.md`: `ponytail` (DietrichGebert/ponytail),
+  `diagnosing-bugs`, `grilling`, `tdd`, `writing-for-agents` (mattpocock/skills),
+  `verification-before-completion` (obra/superpowers). The six `SKILL.md` are ~32 KB, ~40 KB with
+  their supporting files (a skill's extra files load only when the skill reads them).
+  Owner's choice: a pack of small skills, not one merged skill (a skill loads whole into context).
+- `relay install claude|codex` links every `skills/*` with a `SKILL.md` into `~/.claude/skills` /
+  `~/.agents/skills`. Only relay links (symlink to `skills/<same name>` of a relay checkout) are
+  replaced or removed; a foreign file, directory or link with the same name is skipped and printed.
+  `uninstall` removes every relay link in the folder, also for skills no longer shipped.
+- `/api/agents`: new `skills_linked` and `skills_missing` (bundled skills without a relay link);
+  `skill_linked` / `plan_skill_linked` stay. Settings → Agents shows "Skill pack" and the install
+  command when something is missing.
+- NOT done: the real `relay install` on the owner's Mac (needs the owner's "yes"); the effect on
+  usage is to be measured with `relay usage` for a week before and after the install.
+- `tdd` points to `codebase-design` and `code-review` from its repo; they are not in the pack, and in
+  Claude Code `code-review` is Claude Code's own built-in skill.
 
 ## Stage rule and relay-plan skill (Claude Code session, 2026-11-03, commits 792ec2a + next)
 - `relay install claude|codex` writes a managed block (`<!-- relay:plan-rule begin/end -->`) to
@@ -24,10 +43,10 @@ Handover from Claude Code to Codex. Rules and checks are in `AGENTS.md`.
 | 0 | Context guard hooks (soft 150K / hard 300K), relay-handoff skill, usage reports, Claude status line → quota | done (1e9d9a4) |
 | 1 | `relay watch` engine: live tailing, rules, Groq advisor, local API + SSE, advice log with outcomes | done (f51ab78) |
 | 2 | SwiftUI menu-bar app (thin client) | working version (9bc171c … 6b2950f) |
-| 3 | Dispatcher `relay run` | design agreed (`docs/design/dispatcher.md`), no code |
+| 3 | Dispatcher `relay run`, Codex only | v1 (c44fc75) and v1.1 hardening (7155f7c), see `docs/design/dispatcher.md` |
 
 ## Verified
-- Python tests 53 OK; `swift test` 13 OK + 2 skipped; `app/scripts/build.sh` builds.
+- Python tests 91 OK; `swift test` 21 OK + 2 skipped; `app/scripts/build.sh` builds (2026-11-07).
 - Engine on real logs: sessions, context, soft/hard context advice; Codex stale quota ignored.
 - App screens Now, Suggestions, Quotas, Report, Settings, popover with live data (screenshots).
 - Groq key added from the app (Keychain service `relay.groq`, account `test`);
@@ -61,11 +80,10 @@ Handover from Claude Code to Codex. Rules and checks are in `AGENTS.md`.
 1. Owner: one message in interactive `claude`; trust hooks in `codex` `/hooks`.
 2. Watch for the first real Groq advice (above, item 1); fix whatever the live run shows.
 3. The two small issues above (each a small, separate commit).
-4. Phase 3 dispatcher v1, Codex only, per `docs/design/dispatcher.md`. Owner's 8 decisions are
-   recorded there. First verify: whether `claude -p --output-format stream-json` carries
-   rate-limit info; Codex quota from `turn.completed` / rollout `rate_limits`; exact Codex model
-   names per tier from `~/.codex/models_cache.json`. Brainstorm open details with the owner
-   before coding.
+4. Dispatcher: the v1.1 acceptance run (scratch repo with Copy/Setup/Baseline, a baseline failure
+   with 0 Codex calls, detach + resume after `kill`) is not recorded; `~/.local/state/relay/runs/`
+   had only two toy runs from 2026-11-03 on 2026-11-07. Then Claude (`claude -p`) as a second agent;
+   open: whether its stream-json carries rate-limit info.
 5. Later: owner designs the look (`Theme.swift` only); Russian strings in the catalog.
 
 ## Facts worth keeping (checked in official docs 2026-11-02/03)

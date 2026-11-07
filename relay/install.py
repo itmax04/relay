@@ -1,5 +1,9 @@
 """`relay install|uninstall <agent>`: wire the guard, the skills and the stage rule into an agent.
 
+Skills: every `skills/<name>/` with a SKILL.md (relay's own and the vendored third-party pack, see
+skills/THIRD_PARTY.md) is symlinked into the agent's skills directory. Only relay's links are
+replaced or removed; a file, directory or foreign link with the same name is skipped and reported.
+
 Edits are merged into the agent's existing user-level config, a timestamped backup is written
 first, and running install twice leaves one copy of every entry. The stage rule is a block
 between marker lines in the agent's global instructions file; text outside it is left alone.
@@ -14,7 +18,6 @@ import time
 from relay import catalog, config
 
 REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-SKILLS = ("relay-handoff", "relay-plan")
 EVENTS = ("SessionStart", "UserPromptSubmit", "Stop")
 MARK = "/bin/relay\" hook "
 
@@ -126,10 +129,27 @@ def _strip_ours(hooks):
     return hooks
 
 
+def bundled_skills():
+    """Names of the skill directories this checkout ships: skills/<name>/SKILL.md."""
+    root = os.path.join(REPO, "skills")
+    return sorted(n for n in os.listdir(root) if os.path.isfile(os.path.join(root, n, "SKILL.md")))
+
+
+def _is_relay_link(link):
+    """A symlink to skills/<its name> in a relay checkout (this one, the main repo or a worktree)."""
+    if not os.path.islink(link):
+        return False
+    target = os.path.realpath(link)
+    checkout = os.path.dirname(os.path.dirname(target))
+    return (os.path.basename(target) == os.path.basename(link)
+            and os.path.basename(os.path.dirname(target)) == "skills"
+            and os.path.isfile(os.path.join(checkout, "relay", "install.py")))
+
+
 def _link_skill(name, link):
-    if os.path.islink(link):
+    if _is_relay_link(link):
         os.remove(link)
-    elif os.path.exists(link):
+    elif os.path.lexists(link):
         print(f"skip skill: {link} exists and is not a relay link")
         return
     os.makedirs(os.path.dirname(link), exist_ok=True)
@@ -137,10 +157,23 @@ def _link_skill(name, link):
     print(f"skill linked: {link}")
 
 
-def _unlink_skill(name, link):
-    if os.path.islink(link) and os.path.realpath(link) == os.path.realpath(os.path.join(REPO, "skills", name)):
-        os.remove(link)
-        print(f"skill unlinked: {link}")
+def _unlink_skills(folder):
+    """Remove every relay link in `folder`, also links to skills this checkout no longer ships."""
+    try:
+        names = sorted(os.listdir(folder))
+    except FileNotFoundError:
+        return
+    for name in names:
+        link = os.path.join(folder, name)
+        if _is_relay_link(link):
+            os.remove(link)
+            print(f"skill unlinked: {link}")
+
+
+def linked_skills(agent):
+    """Bundled skills that have a relay link in the agent's skills directory."""
+    folder = TARGETS[agent]["skills"]()
+    return [n for n in bundled_skills() if _is_relay_link(os.path.join(folder, n))]
 
 
 def install(agent, autocompact=None, statusline=True, rule=True):
@@ -162,7 +195,7 @@ def install(agent, autocompact=None, statusline=True, rule=True):
             data["autoCompactWindow"] = int(autocompact)
     _write(path, data)
     print(f"hooks installed: {path} ({', '.join(EVENTS)})")
-    for name in SKILLS:
+    for name in bundled_skills():
         _link_skill(name, os.path.join(t["skills"](), name))
     if rule:
         _put_rule(agent, t["instructions"]())
@@ -178,12 +211,15 @@ def status(agent):
         data = _read(path)
     except ValueError:
         data = {}
+    linked = linked_skills(agent)
     events = sorted(e for e, groups in (data.get("hooks") or {}).items()
                     if any(MARK in str(h.get("command", "")) for g in groups or [] for h in g.get("hooks", [])))
     out = {"agent": agent, "config": path, "config_exists": os.path.exists(path), "hooks": events,
            "hooks_installed": set(EVENTS) <= set(events),
-           "skill_linked": os.path.exists(os.path.join(t["skills"](), "relay-handoff")),
-           "plan_skill_linked": os.path.exists(os.path.join(t["skills"](), "relay-plan")),
+           "skill_linked": "relay-handoff" in linked,
+           "plan_skill_linked": "relay-plan" in linked,
+           "skills_linked": linked,
+           "skills_missing": [n for n in bundled_skills() if n not in linked],
            "rule_installed": rule_block(agent) in _read_text(t["instructions"]())}  # present and current
     if agent == "claude":
         out["statusline"] = "/bin/relay\" statusline" in str((data.get("statusLine") or {}).get("command", ""))
@@ -208,6 +244,5 @@ def uninstall(agent, drop_autocompact=False):
                 data.pop("autoCompactWindow", None)
         _write(path, data)
         print(f"hooks removed: {path}")
-    for name in SKILLS:
-        _unlink_skill(name, os.path.join(t["skills"](), name))
+    _unlink_skills(t["skills"]())
     _drop_rule(t["instructions"]())

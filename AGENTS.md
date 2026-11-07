@@ -35,14 +35,15 @@ Then read only the files the current step needs.
   `guard.py` (context hooks), `statusline.py` (Claude quota → quota.jsonl), `config.py`, `catalog.py`.
 - `app/` — SwiftUI menu-bar app, thin client of the engine. `RelayKit` (models, API client, SSE,
   logic; unit-tested) and `RelayApp` (views, `AppModel`, services). See `app/README.md`.
-- `skills/relay-handoff/` — the handoff skill installed into Claude Code and Codex.
+- `skills/` — skills `relay install` links into Claude Code and Codex: relay's own `relay-handoff`
+  and `relay-plan`, plus a vendored third-party pack (do not edit; sources in `skills/THIRD_PARTY.md`).
 - `docs/design/dispatcher.md` — agreed phase-3 design. `docs/status.md` — current state.
 - `.relay/` is gitignored (local handoff notes).
 
 ## Checks before you say "done"
 ```
-python3 -m unittest discover -s tests        # 53 tests, all OK at 6b2950f
-cd app && swift test                          # 13 OK + 2 skipped (live tests need RELAY_LIVE=1)
+python3 -m unittest discover -s tests        # 91 tests, all OK (2026-11-07)
+cd app && swift test                          # 21 OK + 2 skipped (live tests need RELAY_LIVE=1)
 app/scripts/build.sh                          # builds app/build/Relay.app (ad-hoc signed)
 ```
 - Relaunching the app: quit it first (`pkill -x Relay`), because `open --args` does not reach a
