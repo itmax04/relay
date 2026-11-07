@@ -37,6 +37,10 @@ Rules and checks are in `AGENTS.md`.
   `soft_limit` in Settings does not rewrite the block; rerun `relay install`.
 - Open: rule says "Haiku 5.5 low" but the catalog lists no effort levels for Haiku.
 
+## Token-skills research (2026-11-07)
+- Decision: ABVX `token-efficient-execution` added to the pack; Galvarcus (GPL-3.0), Token Optimizer
+  (noncommercial), Caveman, RTK rejected. Full notes: `.relay/token-skills-research.md` (local).
+
 ## Phases
 | Phase | What | State |
 |---|---|---|

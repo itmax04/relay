@@ -185,7 +185,7 @@ class InstallTests(Base):
     def test_skill_pack_is_linked_whole_and_shipped_with_licenses(self):
         pack = install.bundled_skills()
         self.assertTrue({"relay-handoff", "relay-plan", "ponytail", "diagnosing-bugs", "grilling", "tdd",
-                         "writing-for-agents", "verification-before-completion"} <= set(pack))
+                         "writing-for-agents", "verification-before-completion", "token-efficient-execution"} <= set(pack))
         with open(os.path.join(install.REPO, "skills", "THIRD_PARTY.md")) as f:
             notes = f.read()
         for name in pack:

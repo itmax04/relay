@@ -13,6 +13,7 @@ fetching a newer commit and replacing the whole directory.
 | `tdd` | `skills/engineering/tdd/` | [mattpocock/skills](https://github.com/mattpocock/skills) | `4ae2317ddb22b046e26455e4f9c9b3aaaf62212d` |
 | `writing-for-agents` | `skills/productivity/writing-for-agents/` | [mattpocock/skills](https://github.com/mattpocock/skills) | `4ae2317ddb22b046e26455e4f9c9b3aaaf62212d` |
 | `verification-before-completion` | `skills/verification-before-completion/` | [obra/superpowers](https://github.com/obra/superpowers) | `22f0b463e7a5e579904dd6211a520321035526f7` |
+| `token-efficient-execution` | `skills/token-efficient-execution/` | [markoblogo/abvx-agent-skills](https://github.com/markoblogo/abvx-agent-skills) | `d4af8c3a5596ed055f5be5bbbd4c36b37d535530` |
 
 ## References to skills that are not in the pack
 - `tdd` tells the agent to call the `codebase-design` skill (mattpocock/skills
@@ -24,3 +25,4 @@ fetching a newer commit and replacing the whole directory.
   `-review`) are not copied and the main skill does not reference them.
 - `diagnosing-bugs`, `grilling`, `writing-for-agents` and `verification-before-completion` only
   reference files inside their own directory.
+- `token-efficient-execution` mentions `doc-to-lora-evaluator` (ABVX); it is not in the pack.
