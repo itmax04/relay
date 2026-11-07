@@ -46,10 +46,13 @@ public struct Session: Codable, Hashable, Sendable {
 public struct Suggested: Codable, Hashable, Sendable {
     public var model: String?
     public var effort: String?
+    /// First prompt for the new session, when the agent wrote one (rule `next`).
+    public var prompt: String?
 
-    public init(model: String? = nil, effort: String? = nil) {
+    public init(model: String? = nil, effort: String? = nil, prompt: String? = nil) {
         self.model = model
         self.effort = effort
+        self.prompt = prompt
     }
 }
 

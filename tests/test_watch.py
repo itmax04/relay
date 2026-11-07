@@ -377,6 +377,79 @@ class AdvisorTests(ProviderTests):
         self.assertEqual(got, [d])
 
 
+def tag(prompt_text="Deliver PR #83", model="Sonnet 5.5", effort="medium"):
+    return "Next stage.\n<!-- relay-next " + json.dumps({"model": model, "effort": effort, "prompt": prompt_text}) + " -->"
+
+
+def say(text, t=T0):
+    d = assistant(9, 1000, t=t)
+    d["message"]["content"] = [{"type": "text", "text": text}]
+    return d
+
+
+class NextSessionTests(TmpCase):
+    def advice(self, lines, now=T0 + 10, agent="claude", cat=CAT):
+        s = session_from(agent, lines, self.tmp)
+        return s, [a for a in rules.evaluate([s], {}, CFG, cat, now) if a["rule"] == "next"]
+
+    def test_claude_tag_becomes_advice_with_slug(self):
+        s, adv = self.advice([prompt("go"), say(tag())])
+        self.assertEqual(len(adv), 1)
+        self.assertEqual(adv[0]["suggested"], {"model": "claude-sonnet-5-5", "effort": "medium",
+                                               "prompt": "Deliver PR #83"})
+        self.assertEqual(adv[0]["action"], "new_session")
+        self.assertEqual(s.snapshot(T0)["next_session"]["prompt"], "Deliver PR #83")
+
+    def test_codex_tag(self):
+        text = tag(model="gpt-6-astra", effort="high")
+        _, adv = self.advice([
+            {"type": "session_meta", "payload": {"session_id": "c1", "cwd": "/work"}},
+            {"type": "response_item", "timestamp": iso(T0), "payload": {
+                "type": "message", "role": "assistant", "content": [{"type": "output_text", "text": text}]}}],
+            agent="codex")
+        self.assertEqual(adv[0]["suggested"]["model"], "gpt-6-astra")
+        self.assertEqual(adv[0]["suggested"]["effort"], "high")
+
+    def test_bad_json_ignored_and_last_tag_wins(self):
+        _, adv = self.advice([prompt("go"), say("<!-- relay-next {oops} -->")])
+        self.assertEqual(adv, [])
+        _, adv = self.advice([prompt("go"), say(tag("first") + "\n" + tag("second"))])
+        self.assertEqual(adv[0]["suggested"]["prompt"], "second")
+        self.assertIsNone(live.parse_next('<!-- relay-next {"model": "x"} -->'))
+
+    def test_stale_after_user_prompt_or_12h(self):
+        _, adv = self.advice([prompt("go"), say(tag()), prompt("one more thing")])
+        self.assertEqual(adv, [])
+        _, adv = self.advice([prompt("go"), say(tag())], now=T0 + 13 * 3600)
+        self.assertEqual(adv, [])
+
+    def test_effort_dropped_when_model_lists_none(self):
+        _, adv = self.advice([prompt("go"), say(tag(model="haiku", effort="low"))])
+        self.assertEqual(adv[0]["suggested"]["model"], "claude-haiku-5-5")
+        self.assertIsNone(adv[0]["suggested"]["effort"])
+
+    def test_unknown_model_kept_raw(self):
+        _, adv = self.advice([prompt("go"), say(tag(model="mystery-1"))])
+        self.assertEqual(adv[0]["suggested"]["model"], "mystery-1")
+
+    def test_same_tag_same_key_across_reread(self):
+        lines = [prompt("go"), say(tag())]
+        _, a = self.advice(lines)
+        _, b = self.advice(lines)
+        self.assertEqual(a[0]["key"], b[0]["key"])
+        log = store.AdviceLog(None)
+        self.assertIsNotNone(log.add(a[0]))
+        self.assertIsNone(log.add(b[0]))
+
+    def test_notifier_fires_for_next(self):
+        sent = []
+        n = notify.Notifier(True, 3600, send=lambda *a: sent.append(a), clock=lambda: T0)
+        _, adv = self.advice([prompt("go"), say(tag())])
+        self.assertTrue(n.maybe(adv[0]))
+        self.assertEqual(sent[0][0], "relay: next session ready")
+        self.assertIn("claude-sonnet-5-5 medium", sent[0][2])
+
+
 class StoreNotifyTests(TmpCase):
     def test_log_dedupes_and_keeps_outcomes(self):
         path = os.path.join(self.tmp, "advice.jsonl")

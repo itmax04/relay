@@ -2,6 +2,10 @@
 
 Rules and checks are in `AGENTS.md`.
 
+## ACTIVE: next session on one click (design done 2026-11-07, implementation not started)
+- Design: `docs/design/next-session.md` (tag `<!-- relay-next {...} -->`, engine rule `next`,
+  Continue sheet uses the agent's prompt, model and effort). Next stage: implementation, standard.
+
 ## Third-party skill pack (Claude Code session, 2026-11-07, not committed yet)
 - Six small MIT skills copied unchanged into `skills/<name>/` with the upstream `LICENSE`; source
   repo and pinned commit of each in `skills/THIRD_PARTY.md`: `ponytail` (DietrichGebert/ponytail),
@@ -94,6 +98,15 @@ Rules and checks are in `AGENTS.md`.
    had only two toy runs from 2026-11-03 on 2026-11-07. Then Claude (`claude -p`) as a second agent;
    open: whether its stream-json carries rate-limit info.
 5. Later: owner designs the look (`Theme.swift` only); Russian strings in the catalog.
+
+## Next session on one click (implemented 2026-11-07, design: `docs/design/next-session.md`)
+- Engine reads the `<!-- relay-next {...} -->` tag from Claude/Codex assistant messages (`live.parse_next`),
+  rule `next` makes a `new_session` card with `suggested.prompt`; notifier fires for it.
+- App: Continue sheet uses the agent's prompt, passes `--effort` to Claude, own agent is the default button.
+- Verified: 100 Python tests, `swift test` (20 + 2 skipped), `app/scripts/build.sh`.
+- Not verified: live run against the real engine and a sheet screenshot (worktree; engine on :8765 is the
+  main checkout's). The RULE text changed, so `rule_installed` is false until the block is rewritten
+  from main (command in the design doc, needs the owner's yes). Merge to main pending.
 
 ## Facts worth keeping (checked in official docs 2026-11-02/03)
 - No hook or MCP server can change an agent's model or effort. Hooks can inject context and block

@@ -1,5 +1,6 @@
 """Free, instant checks over live session state. Each check returns advice dicts with a `key`;
 the engine emits a key once, so a check may return the same advice on every pass."""
+import hashlib
 import time
 
 from relay import catalog
@@ -13,12 +14,13 @@ def _k(n):
     return f"{round(n / 1000)}K"
 
 
-def _advice(s, rule, key, action, severity, title, reason, model=None, effort=None, **metrics):
+def _advice(s, rule, key, action, severity, title, reason, model=None, effort=None, prompt=None, **metrics):
     return {"key": f"{s.agent}:{s.id}:{rule}:{key}" if s else f"{rule}:{key}", "rule": rule,
             "agent": s.agent if s else None, "session": s.id if s else None, "project": s.project if s else None,
             "session_title": s.title if s else None,
             "title": title, "action": action, "severity": severity, "reason": reason,
-            "suggested": {"model": model, "effort": effort} if (model or effort) else None, "metrics": metrics}
+            "suggested": ({"model": model, "effort": effort, "prompt": prompt}
+                          if (model or effort or prompt) else None), "metrics": metrics}
 
 
 def context_limits(s, cfg, cat, now):
@@ -119,6 +121,35 @@ def mechanical_run(s, cfg, cat, now):
     return []
 
 
+def _resolve_next(s, cat, model, effort):
+    """Map the agent's model name (alias, display name or slug) to a catalog slug; drop an unsupported effort."""
+    raw = (model or "").strip()
+    found = None
+    for m in cat.get(s.agent) or []:
+        names = {m["slug"].lower(), (m.get("name") or "").lower(), (m.get("alias") or "").lower()}
+        if raw.lower() in names:
+            found = m
+            break
+    if found is None:
+        found = catalog.find(cat, s.agent, raw) if raw else None
+    slug = found["slug"] if found else (raw or None)
+    if effort and found and found.get("efforts") is not None and effort not in found["efforts"]:
+        effort = None
+    return slug, effort or None
+
+
+def next_session(s, cfg, cat, now):
+    n = s.next_session
+    if not n or n["turn"] != s.turns or now - n["ts"] > 12 * 3600:
+        return []
+    model, effort = _resolve_next(s, cat, n["model"], n["effort"])
+    key = hashlib.sha1(f"{n['ts']}:{n['prompt']}".encode()).hexdigest()[:12]
+    label = " ".join(p for p in (model, effort) if p)
+    return [_advice(s, "next", key, "new_session", "warn",
+                    f"Next session ready: {label}" if label else "Next session ready", n["prompt"],
+                    model=model, effort=effort, prompt=n["prompt"])]
+
+
 def quota(sessions, quotas, cfg, cat, now):
     """Plan-quota pressure, attached to the busiest recently active session of each agent."""
     out = []
@@ -169,7 +200,8 @@ def _codex_pct(rl):
     return week.get("used_percent"), five.get("used_percent"), week.get("resets_at"), five.get("resets_at")
 
 
-SESSION_RULES = (context_limits, cache_expiry, repeated_failures, large_reads, mechanical_run)
+SESSION_RULES = (context_limits, cache_expiry, repeated_failures, large_reads, mechanical_run,
+                 next_session)
 
 
 def evaluate(sessions, quotas, cfg, cat, now=None):

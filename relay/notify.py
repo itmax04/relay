@@ -1,4 +1,4 @@
-"""macOS notifications for high-severity advice, at most one per session and rule per hour."""
+"""macOS notifications for high-severity advice and ready next sessions, at most one per session and rule per hour."""
 import subprocess
 import sys
 import time
@@ -26,7 +26,8 @@ class Notifier:
         self.sent = {}
 
     def maybe(self, advice):
-        if not self.enabled or advice.get("severity") != "high":
+        nxt = advice.get("rule") == "next"
+        if not self.enabled or not (nxt or advice.get("severity") == "high"):
             return False
         key = (advice.get("agent"), advice.get("session"), advice.get("rule"))
         now = self.clock()
@@ -34,5 +35,10 @@ class Notifier:
             return False
         self.sent[key] = now
         where = advice.get("project") or advice.get("agent") or ""
+        if nxt:
+            sg = advice.get("suggested") or {}
+            label = " ".join(p for p in (sg.get("model"), sg.get("effort")) if p)
+            self.send("relay: next session ready", str(where)[-60:], f"{label} — {(sg.get('prompt') or '')[:80]}")
+            return True
         self.send(f"relay: {advice.get('title', '')}", str(where)[-60:], advice.get("reason") or "")
         return True

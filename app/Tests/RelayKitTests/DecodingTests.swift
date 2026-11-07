@@ -45,6 +45,17 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(AdviceAction.of(advice), .copyModelCommand("/model claude-sonnet-5-5"))
     }
 
+    func testSuggestedPromptAndNextAction() throws {
+        let with = try JSONDecoder().decode(Suggested.self, from: Data(#"{"model":"m","effort":"low","prompt":"Do X"}"#.utf8))
+        XCTAssertEqual(with.prompt, "Do X")
+        let without = try JSONDecoder().decode(Suggested.self, from: Data(#"{"model":"m"}"#.utf8))
+        XCTAssertNil(without.prompt)
+        var advice = try APIClient.decode([Advice].self, from: fixture("advice"))[1]
+        advice.rule = "next"
+        advice.action = "new_session"
+        XCTAssertEqual(AdviceAction.of(advice), .continueInNewSession)
+    }
+
     func testQuota() throws {
         let q = try APIClient.decode(QuotaResponse.self, from: fixture("quota"))
         let claude = q.claudeWindows
@@ -156,6 +167,8 @@ final class DecodingTests: XCTestCase {
         XCTAssertEqual(LaunchCommand.make(agent: .codex, projectRoot: "/p q", prompt: "Continue.", model: "gpt-6.1-sol", effort: "low"),
                        "cd '/p q' && codex -m 'gpt-6.1-sol' -c 'model_reasoning_effort=low' 'Continue.'")
         XCTAssertEqual(LaunchCommand.make(agent: .claude, projectRoot: "/p", prompt: "Go"), "cd '/p' && claude 'Go'")
+        XCTAssertEqual(LaunchCommand.make(agent: .claude, projectRoot: "/p", prompt: "Go", model: "claude-sonnet-5-5", effort: "medium"),
+                       "cd '/p' && claude --model 'claude-sonnet-5-5' --effort 'medium' 'Go'")
     }
 
     func testHandoffLocation() throws {

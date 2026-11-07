@@ -43,6 +43,10 @@ those names; relay keeps them current. In Claude Code the user switches with `/m
    - Model and effort: exactly the names from the Tiers line for that tier.
    - The prompt names the concrete next action (what to do, on which PR, task or files, from
      which handoff), so the new session can start without asking. Not just "continue".
+4. Right after it, write the machine tag as the very last line, exactly (one-line JSON, the same
+   prompt, `model` and `effort` as in the line above; relay reads it to offer the new session):
+
+   `<!-- relay-next {"model": "<model>", "effort": "<effort>", "prompt": "<prompt>"} -->`
 
 ## Examples
 
@@ -63,6 +67,7 @@ Checkpoint at a stage boundary (the next stage has another tier):
 ```
 Этап 1 готов: формат блока согласован, тесты проходят (12 OK). Handoff обновлён: .relay/handoff.md.
 ➡️ Следующий этап — реализация install/uninstall, standard → Sonnet 5.5 medium, в новой сессии. Промпт: «Продолжи по handoff .relay/handoff.md: реализуй install/uninstall блока и тесты к ним».
+<!-- relay-next {"model": "Sonnet 5.5", "effort": "medium", "prompt": "Продолжи по handoff .relay/handoff.md: реализуй install/uninstall блока и тесты к ним"} -->
 ```
 
 End of a session in Codex (a review stage is done, delivery is next):
@@ -70,6 +75,7 @@ End of a session in Codex (a review stage is done, delivery is next):
 ```
 Ревью готово: APPROVE опубликован в PR #83. Handoff обновлён.
 ➡️ Следующий этап — доставка, standard → gpt-6.1-sol medium, в новой сессии. Промпт: «Доставь PR #83 по handoff с учётом опубликованного APPROVE, затем подготовь handoff для T-6a2b».
+<!-- relay-next {"model": "gpt-6.1-sol", "effort": "medium", "prompt": "Доставь PR #83 по handoff с учётом опубликованного APPROVE, затем подготовь handoff для T-6a2b"} -->
 ```
 
 Stop because of the context size (same tier, but the context is above the 150K limit):
@@ -78,6 +84,7 @@ Stop because of the context size (same tier, but the context is above the 150K l
 ⏸ Контекст 162K — дальше дорого. Этап 2 сделан наполовину: install готов и проверен, uninstall нет.
 Handoff обновлён: .relay/handoff.md.
 ➡️ Следующий этап — этап 2 (продолжение): uninstall и тесты, standard → Sonnet 5.5 medium, в новой сессии. Промпт: «Продолжи по handoff .relay/handoff.md: допиши uninstall и тесты к install/uninstall».
+<!-- relay-next {"model": "Sonnet 5.5", "effort": "medium", "prompt": "Продолжи по handoff .relay/handoff.md: допиши uninstall и тесты к install/uninstall"} -->
 ```
 
 A small question gets a plain answer, without a plan:

@@ -14,6 +14,10 @@ struct ContinueSheet: View {
 
     private var session: Session? { target.session }
     private var suggested: Suggested? { target.advice?.suggested }
+    /// The agent's own prompt wins over the one built from the handoff.
+    private var prompt: String? { suggested?.prompt ?? handoff?.continuationPrompt }
+    private var isNext: Bool { target.advice?.rule == "next" }
+    private var ownAgent: Agent? { session.flatMap { Agent(rawValue: $0.agent) } ?? target.advice.flatMap { Agent(rawValue: $0.agent ?? "") } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.l) {
@@ -29,7 +33,7 @@ struct ContinueSheet: View {
             }
             if let handoff {
                 HStack(alignment: .top) {
-                    Text(verbatim: handoff.continuationPrompt)
+                    Text(verbatim: prompt ?? handoff.continuationPrompt)
                         .font(Theme.Fonts.code)
                         .textSelection(.enabled)
                     Spacer()
@@ -37,7 +41,7 @@ struct ContinueSheet: View {
                 .padding(Theme.Space.m)
                 .background(Theme.Colors.codeBackground, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.Colors.cardBorder))
-                if !handoff.exists {
+                if !handoff.exists && suggested?.prompt == nil {
                     Label("No handoff yet. Ask the current session to write one first (relay-handoff skill), then come back.",
                           systemImage: Theme.Symbols.warning)
                         .foregroundStyle(Theme.Colors.caution)
@@ -52,17 +56,9 @@ struct ContinueSheet: View {
             if let error { Text(verbatim: error).foregroundStyle(Theme.Colors.danger) }
             Divider()
             HStack {
-                Button {
-                    if let p = handoff?.continuationPrompt { Clipboard.copy(p); copied = true }
-                } label: {
-                    Label(copied ? "Copied" : "Copy prompt", systemImage: Theme.Symbols.copy)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(handoff == nil)
-                Button("Open in Claude CLI") { launch(.claude) }
-                    .disabled(handoff == nil)
-                Button("Open in Codex") { launch(.codex) }
-                    .disabled(handoff == nil)
+                copyButton
+                launchButton("Open in Claude CLI", .claude)
+                launchButton("Open in Codex", .codex)
                 Spacer()
                 Button("Cancel", role: .cancel) { close() }
                     .keyboardShortcut(.cancelAction)
@@ -74,6 +70,31 @@ struct ContinueSheet: View {
             let cwd = session?.cwd, path = model.handoffPath
             handoff = await Task.detached { AppModel.handoff(cwd: cwd, handoffPath: path) }.value
             located = true
+        }
+    }
+
+    @ViewBuilder private var copyButton: some View {
+        let button = Button {
+            if let p = prompt { Clipboard.copy(p); copied = true }
+        } label: {
+            Label(copied ? "Copied" : "Copy prompt", systemImage: Theme.Symbols.copy)
+        }
+        if isNext {
+            button.buttonStyle(.bordered).disabled(prompt == nil)
+        } else {
+            button.buttonStyle(.borderedProminent).disabled(prompt == nil)
+        }
+    }
+
+    @ViewBuilder private func launchButton(_ title: LocalizedStringKey, _ agent: Agent) -> some View {
+        if isNext && ownAgent == agent {
+            Button(title) { launch(agent) }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(handoff == nil || prompt == nil)
+        } else {
+            Button(title) { launch(agent) }
+                .disabled(handoff == nil || prompt == nil)
         }
     }
 
@@ -107,11 +128,11 @@ struct ContinueSheet: View {
     /// Opens Terminal in the project root with the agent and the prompt. The suggested model is
     /// passed only to the agent it belongs to.
     private func launch(_ agent: Agent) {
-        guard let handoff else { return }
+        guard let handoff, let prompt else { return }
         let sameAgent = session?.agent == agent.rawValue || target.advice?.agent == agent.rawValue
-        let command = LaunchCommand.make(agent: agent, projectRoot: handoff.projectRoot, prompt: handoff.continuationPrompt,
+        let command = LaunchCommand.make(agent: agent, projectRoot: handoff.projectRoot, prompt: prompt,
                                          model: sameAgent ? suggested?.model : nil,
-                                         effort: sameAgent && agent == .codex ? suggested?.effort : nil)
+                                         effort: sameAgent ? suggested?.effort : nil)
         do {
             try TerminalLauncher.run(command)
             close()
