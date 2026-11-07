@@ -29,7 +29,8 @@ RULE = """## Stages and model tiers (managed by `relay install`, removed by `rel
 For tasks with several stages (not questions or small edits):
 - Start with a short plan of stages; give each a tier: strong (design, hard debugging), standard (implementation from a plan), light (mechanical edits, tests, docs).
 - Stop only at a stage boundary, when the next stage has a different tier or the context is above {limit}K.
-- Before stopping: verify the result, update the handoff (relay-handoff skill), write the next stage and its tier in one line.
+- Before stopping: verify the result, update the handoff (relay-handoff skill).
+- Whenever a session ends and the work goes on in a new one (stage boundary, context limit, finished step with a next one), end with one line: the next stage, its tier → model and effort from the Tiers line, "in a new session", and a ready prompt naming the concrete next action. E.g.: Next stage — delivery, standard → <model> medium, in a new session. Prompt: «Deliver PR #83 from the handoff, then prepare the handoff for T-6a2b».
 - Never switch the model mid-session: continue in a new session from the handoff.
 Tiers: {tiers}. Output format and examples: relay-plan skill."""
 

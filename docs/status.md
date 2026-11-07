@@ -36,6 +36,11 @@ Rules and checks are in `AGENTS.md`.
 - NOT verified: stop at a stage boundary and at the context limit in a real project. Changing
   `soft_limit` in Settings does not rewrite the block; rerun `relay install`.
 - Open: rule says "Haiku 5.5 low" but the catalog lists no effort levels for Haiku.
+- 2026-11-07: every session that ends with work left (stage boundary, context
+  limit, finished step with a next one) must end with one line: next stage, tier → model + effort,
+  "in a new session", and a concrete prompt (`RULE` in `relay/install.py`, format and examples in
+  `skills/relay-plan`, `skills/relay-handoff` points to it). Installed:
+  Block rewritten in both agents on the owner's "yes" (backups `*.relay-backup-20261107-120734`).
 
 ## Token-skills research (2026-11-07)
 - Decision: ABVX `token-efficient-execution` added to the pack; Galvarcus (GPL-3.0), Token Optimizer

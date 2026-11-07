@@ -37,8 +37,9 @@ Link to evidence instead of pasting it. Use these sections:
 Keep facts, assumptions and unknowns apart. Keep exact error messages and reproduction steps
 for an unfixed bug. Do not drop a constraint or a failed check to make the file shorter.
 
-After writing it, tell the user in one or two lines where the handoff is and that the next
-step should start in a new session with: "Continue from the handoff at <path>."
+After writing it, tell the user in one or two lines where the handoff is, and end with the
+recommendation line from the relay-plan skill: the next stage, its tier → model and effort, in a
+new session, and a prompt that names the next action and the handoff path.
 
 ## Restoring from a handoff
 
