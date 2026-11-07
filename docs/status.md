@@ -2,6 +2,10 @@
 
 Rules and checks are in `AGENTS.md`.
 
+## ACTIVE: next session on one click (design done 2026-11-07, implementation not started)
+- Design: `docs/design/next-session.md` (tag `<!-- relay-next {...} -->`, engine rule `next`,
+  Continue sheet uses the agent's prompt, model and effort). Next stage: implementation, standard.
+
 ## Third-party skill pack (Claude Code session, 2026-11-07, not committed yet)
 - Six small MIT skills copied unchanged into `skills/<name>/` with the upstream `LICENSE`; source
   repo and pinned commit of each in `skills/THIRD_PARTY.md`: `ponytail` (DietrichGebert/ponytail),
