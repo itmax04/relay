@@ -33,6 +33,24 @@ def parse_ts(ts):
         return None
 
 
+NEXT_TAG = re.compile(r"<!--\s*relay-next\s+(\{.*?\})\s*-->", re.S)
+
+
+def parse_next(text):
+    """The last well-formed relay-next tag in an assistant message: {"model", "effort", "prompt"} or None."""
+    for raw in reversed(NEXT_TAG.findall(text or "")):
+        try:
+            d = json.loads(raw)
+        except ValueError:
+            continue
+        if not isinstance(d, dict) or not isinstance(d.get("prompt"), str) or not d["prompt"].strip():
+            continue
+        return {"model": d["model"] if isinstance(d.get("model"), str) else None,
+                "effort": d["effort"] if isinstance(d.get("effort"), str) else None,
+                "prompt": d["prompt"].strip()[:2000]}
+    return None
+
+
 def _text(content):
     """Plain text of a message/tool-result content (string or list of blocks)."""
     if isinstance(content, str):
@@ -89,6 +107,7 @@ class Session:
         self.last_call_ts = None
         self.last_activity = None
         self.last_prompt = ""
+        self.next_session = None  # last relay-next tag the agent wrote: {"model", "effort", "prompt", "ts", "turn"}
         self.rate_limits = None
         self.recent_calls = collections.deque(maxlen=30)  # {"id", "tools", "output", "mechanical"}
         self.recent_tools = collections.deque(maxlen=40)  # {"sig", "label", "error", "excerpt", "ts"}
@@ -130,6 +149,7 @@ class Session:
         content = m.get("content")
         if kind == "assistant":
             self.effort = d.get("effort") or self.effort
+            self._note_next(_text(content), d.get("timestamp"))
             self._note_call(m.get("id"), content, (m.get("usage") or {}).get("output_tokens") or 0)
             return
         if d.get("toolUseResult") is not None or (isinstance(content, list) and any(
@@ -143,6 +163,11 @@ class Session:
         if not d.get("isMeta") and text and not text.lstrip().startswith("<"):
             self.turns += 1
             self.last_prompt = text[:2000]
+
+    def _note_next(self, text, ts):
+        tag = parse_next(text) if "relay-next" in text else None
+        if tag:
+            self.next_session = dict(tag, ts=parse_ts(ts) or time.time(), turn=self.turns)
 
     def _note_call(self, msg_id, content, output):
         tools, args_list = [], []
@@ -215,6 +240,8 @@ class Session:
             text = out if isinstance(out, str) else _text(out) or json.dumps(out, default=str)
             error = bool(_EXIT.search(text[:2000]) or _FAILED.match(text))
             self._note_result(p.get("call_id"), text, error, d.get("timestamp"))
+        elif t == "message" and p.get("role") == "assistant":
+            self._note_next(_text(p.get("content")), d.get("timestamp"))
         elif t == "message" and p.get("role") == "user":
             text = _text(p.get("content"))
             if text and not text.lstrip().startswith("<"):
@@ -244,6 +271,7 @@ class Session:
                 "failures": sum(1 for t in self.recent_tools if t["error"]),
                 "idle_seconds": None if self.idle(now) is None else round(self.idle(now)),
                 "last_activity": self.last_activity, "last_prompt": self.last_prompt[:300],
+                "next_session": self.next_session,
                 "rate_limits": {k: rl.get(k) for k in ("primary", "secondary") if rl.get(k)} or None}
 
 

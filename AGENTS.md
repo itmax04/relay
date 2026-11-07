@@ -42,8 +42,8 @@ Then read only the files the current step needs.
 
 ## Checks before you say "done"
 ```
-python3 -m unittest discover -s tests        # 91 tests, all OK (2026-11-07)
-cd app && swift test                          # 21 OK + 2 skipped (live tests need RELAY_LIVE=1)
+python3 -m unittest discover -s tests        # 100 tests, all OK (2026-11-07)
+cd app && swift test                          # 20 OK + 2 skipped (live tests need RELAY_LIVE=1)
 app/scripts/build.sh                          # builds app/build/Relay.app (ad-hoc signed)
 ```
 - Relaunching the app: quit it first (`pkill -x Relay`), because `open --args` does not reach a

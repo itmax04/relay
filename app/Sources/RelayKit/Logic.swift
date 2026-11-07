@@ -168,6 +168,7 @@ public enum LaunchCommand {
         case .claude:
             args = ["claude"]
             if let model { args += ["--model", ShellQuote.quote(model)] }
+            if let effort { args += ["--effort", ShellQuote.quote(effort)] }
         case .codex:
             args = ["codex"]
             if let model { args += ["-m", ShellQuote.quote(model)] }
