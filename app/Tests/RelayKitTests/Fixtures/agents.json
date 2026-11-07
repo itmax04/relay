@@ -11,6 +11,13 @@
   "hooks_installed": true,
   "skill_linked": true,
   "plan_skill_linked": true,
+  "skills_linked": [
+   "relay-handoff",
+   "relay-plan"
+  ],
+  "skills_missing": [
+   "tdd"
+  ],
   "rule_installed": false,
   "statusline": true,
   "autocompact": 350000

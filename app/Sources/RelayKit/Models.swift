@@ -207,6 +207,8 @@ public struct AgentStatus: Codable, Hashable, Sendable {
     public var hooksInstalled: Bool
     public var skillLinked: Bool
     public var planSkillLinked: Bool?
+    /// Bundled skills (relay's own and the third-party pack) with no relay link yet; nil from older engines.
+    public var skillsMissing: [String]?
     public var ruleInstalled: Bool?
     public var statusline: Bool?
     public var autocompact: Int?
