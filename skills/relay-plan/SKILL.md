@@ -50,46 +50,46 @@ those names; relay keeps them current. In Claude Code the user switches with `/m
 
 ## Examples
 
-Reply in the user's language; these examples are in Russian.
+Reply in the user's language; these examples are in English.
 
 Plan at the start:
 
 ```
-План:
-1. Спроектировать формат блока и места установки — strong
-2. Реализовать install/uninstall и тесты — standard
-3. Обновить README и status — light
-Начинаю этап 1.
+Plan:
+1. Design the block format and installation locations — strong
+2. Implement install/uninstall and tests — standard
+3. Update README and status — light
+Starting stage 1.
 ```
 
 Checkpoint at a stage boundary (the next stage has another tier):
 
 ```
-Этап 1 готов: формат блока согласован, тесты проходят (12 OK). Handoff обновлён: .relay/handoff.md.
-➡️ Следующий этап — реализация install/uninstall, standard → Sonnet 5.5 medium, в новой сессии. Промпт: «Продолжи по handoff .relay/handoff.md: реализуй install/uninstall блока и тесты к ним».
-<!-- relay-next {"model": "Sonnet 5.5", "effort": "medium", "prompt": "Продолжи по handoff .relay/handoff.md: реализуй install/uninstall блока и тесты к ним"} -->
+Stage 1 is done: the block format is agreed, tests pass (12 OK). Handoff updated: .relay/handoff.md.
+➡️ Next stage — implement install/uninstall, standard → Sonnet 5.5 medium, in a new session. Prompt: «Continue from .relay/handoff.md: implement block install/uninstall and their tests».
+<!-- relay-next {"model": "Sonnet 5.5", "effort": "medium", "prompt": "Continue from .relay/handoff.md: implement block install/uninstall and their tests"} -->
 ```
 
 End of a session in Codex (a review stage is done, delivery is next):
 
 ```
-Ревью готово: APPROVE опубликован в PR #83. Handoff обновлён.
-➡️ Следующий этап — доставка, standard → gpt-6.1-sol medium, в новой сессии. Промпт: «Доставь PR #83 по handoff с учётом опубликованного APPROVE, затем подготовь handoff для T-6a2b».
-<!-- relay-next {"model": "gpt-6.1-sol", "effort": "medium", "prompt": "Доставь PR #83 по handoff с учётом опубликованного APPROVE, затем подготовь handoff для T-6a2b"} -->
+Review complete: APPROVE posted on PR #83. Handoff updated.
+➡️ Next stage — delivery, standard → gpt-6.1-sol medium, in a new session. Prompt: «Deliver PR #83 from the handoff, taking the posted APPROVE into account, then prepare the handoff for T-6a2b».
+<!-- relay-next {"model": "gpt-6.1-sol", "effort": "medium", "prompt": "Deliver PR #83 from the handoff, taking the posted APPROVE into account, then prepare the handoff for T-6a2b"} -->
 ```
 
 Stop because of the context size (same tier, but the context is above the 150K limit):
 
 ```
-⏸ Контекст 162K — дальше дорого. Этап 2 сделан наполовину: install готов и проверен, uninstall нет.
-Handoff обновлён: .relay/handoff.md.
-➡️ Следующий этап — этап 2 (продолжение): uninstall и тесты, standard → Sonnet 5.5 medium, в новой сессии. Промпт: «Продолжи по handoff .relay/handoff.md: допиши uninstall и тесты к install/uninstall».
-<!-- relay-next {"model": "Sonnet 5.5", "effort": "medium", "prompt": "Продолжи по handoff .relay/handoff.md: допиши uninstall и тесты к install/uninstall"} -->
+⏸ Context is 162K; continuing is expensive. Stage 2 is halfway done: install is implemented and verified, uninstall is not.
+Handoff updated: .relay/handoff.md.
+➡️ Next stage — stage 2 (continued): uninstall and tests, standard → Sonnet 5.5 medium, in a new session. Prompt: «Continue from .relay/handoff.md: finish uninstall and the install/uninstall tests».
+<!-- relay-next {"model": "Sonnet 5.5", "effort": "medium", "prompt": "Continue from .relay/handoff.md: finish uninstall and the install/uninstall tests"} -->
 ```
 
 A small question gets a plain answer, without a plan:
 
 ```
-> Какой порт у движка?
+> What port does the engine use?
 127.0.0.1:8765.
 ```

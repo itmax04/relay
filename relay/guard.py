@@ -70,23 +70,23 @@ def decide(agent, payload, cfg, state):
         if note:
             extra.append(note)
         if ctx and ctx >= soft and payload.get("source") in ("resume", "fork"):
-            out["systemMessage"] = (f"relay: в этой сессии уже ~{_k(ctx)} токенов контекста — каждый ход "
-                                    f"отправляет их заново. Дешевле начать новую сессию с handoff.")
+            out["systemMessage"] = (f"relay: this session already has ~{_k(ctx)} tokens of context, resent "
+                                    f"on every turn. Starting a new session from a handoff costs less.")
             extra.append(f"relay: this resumed session already carries ~{_k(ctx)} tokens of context "
                          f"(soft limit {_k(soft)}). Suggest the user continue in a fresh session from "
                          f"the handoff ({SKILL} skill) rather than here.")
 
     elif event == "UserPromptSubmit" and ctx and ctx >= soft:
         if ctx >= hard:
-            out["systemMessage"] = (f"relay: контекст ~{_k(ctx)} > жёсткого порога {_k(hard)}. "
-                                    f"Агент обновит handoff — продолжайте в новой сессии.")
+            out["systemMessage"] = (f"relay: context ~{_k(ctx)} > hard limit {_k(hard)}. "
+                                    f"The agent will update the handoff; continue in a new session.")
             extra.append(f"relay: context is ~{_k(ctx)} tokens, above the hard limit of {_k(hard)}. "
                          f"Unless the user explicitly insists on continuing here, do not start new "
                          f"work: update the handoff with the {SKILL} skill, then tell the user to "
                          f"continue in a new session. Answer short questions briefly.")
         else:
-            out["systemMessage"] = (f"relay: контекст ~{_k(ctx)} > {_k(soft)}. После этого шага "
-                                    f"лучше начать новую сессию с handoff.")
+            out["systemMessage"] = (f"relay: context ~{_k(ctx)} > {_k(soft)}. After this step, "
+                                    f"start a new session from a handoff.")
             extra.append(f"relay: context is ~{_k(ctx)} tokens (soft limit {_k(soft)}). Finish the "
                          f"current step, then at that boundary update the handoff with the {SKILL} "
                          f"skill and suggest a new session. Read narrowly: only the files this step needs.")
@@ -103,7 +103,7 @@ def decide(agent, payload, cfg, state):
                              f"(skip only if you updated it during this turn and nothing changed since). "
                              f"Then end with one short line telling the user, in their language, where "
                              f"the handoff is and that the next step should start in a new session.")
-            out["systemMessage"] = f"relay: контекст ~{_k(ctx)} — агент записывает handoff перед новой сессией."
+            out["systemMessage"] = f"relay: context ~{_k(ctx)}; the agent is writing a handoff before a new session."
 
     if extra:
         out["hookSpecificOutput"] = {"hookEventName": event, "additionalContext": "\n".join(extra)}
